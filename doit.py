@@ -21,7 +21,7 @@ logging.basicConfig(
         '%(name)s [%(funcName)s:%(lineno)d] %(message)s'))
 LOGGER = logging.getLogger(__name__)
 
-ECOSHARD_ROOT = 'https://storage.ecoshard-root/nci-gap-fill-npp-scaling/Data-20201207T190350Z-001_md5_63b09dd643d3e686a5d83a9e340c90d2.zip'
+ECOSHARD_ROOT = 'https://storage.googleapis.com/ecoshard-root/nci-gap-fill-npp-scaling/Data-20201207T190350Z-001_md5_63b09dd643d3e686a5d83a9e340c90d2.zip'
 WORKSPACE_DIR = 'workspace'
 DATA_DIR = os.path.join(WORKSPACE_DIR, 'data')
 

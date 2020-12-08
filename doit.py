@@ -28,7 +28,7 @@ DATA_DIR = os.path.join(WORKSPACE_DIR, 'data')
 
 def main():
     """Entry point."""
-    for dir_path in [WORKSPACE_DIR, DATA_DIR]
+    for dir_path in [WORKSPACE_DIR, DATA_DIR]:
         try:
             os.makedirs(dir_path)
         except OSError:

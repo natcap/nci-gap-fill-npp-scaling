@@ -28,10 +28,11 @@ DATA_DIR = os.path.join(WORKSPACE_DIR, 'data')
 
 def main():
     """Entry point."""
-    try:
-        os.makedirs(WORKSPACE_DIR)
-    except OSError:
-        pass
+    for dir_path in [WORKSPACE_DIR, DATA_DIR]
+        try:
+            os.makedirs(dir_path)
+        except OSError:
+            pass
     task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
     token_path = os.path.join(DATA_DIR, 'download.token')
     task_graph.add_task(

@@ -68,6 +68,12 @@ RASTER_ID_PATH_STACK = [
     ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH)
 ]
 
+FORESTRY_VALID_LULC_LIST = [
+    50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170]
+GRAZING_VALID_LULC_LIST = [
+    30, 40, 100, 110, 120, 121, 122, 130, 140, 150, 152, 153, 180, 200, 201,
+    202, 203]
+
 PRODUCTION_ZONE_RASTER_STACK = [
     GRAZING_ZONE_RASTER_PATH,
     TIMBER_RASTER_PATH,
@@ -82,9 +88,8 @@ def _fill_nodata_op(base, fill, nodata):
     return result
 
 
-def clip_and_fill_by_convolution(
-        base_raster_path, bounding_box, convolve_radius,
-        target_filled_raster_path):
+def fill_by_convolution(
+        base_raster_path, convolve_radius, target_filled_raster_path):
     """Clip and fill.
 
     Clip the base raster data to the bounding box then fill any noodata
@@ -92,8 +97,6 @@ def clip_and_fill_by_convolution(
 
     Args:
         base_raster_path (str): path to base raster
-        bounding_box (tuple): a 4-tuple indicating xmin, ymin, xmax, ymax
-            to clip base data to.
         convolve_radius (float): maximum convolution distance kernel in
             projected units of base.
         target_filled_raster_path (str): raster created by convolution fill,
@@ -105,11 +108,7 @@ def clip_and_fill_by_convolution(
     """
     target_dir = os.path.dirname(target_filled_raster_path)
     basename = os.path.basename(target_filled_raster_path)
-    clip_raster_path = os.path.join(target_dir, f'clip_{basename}')
     base_raster_info = pygeoprocessing.get_raster_info(base_raster_path)
-    pygeoprocessing.warp_raster(
-        base_raster_path, base_raster_info['pixel_size'],
-        clip_raster_path, 'near', target_bb=bounding_box)
 
     # this ensures a minimum of 5 pixels in case the pixel size is too
     # chunky
@@ -125,17 +124,16 @@ def clip_and_fill_by_convolution(
         base_raster_info['projection_wkt'], kernel_raster_path)
     backfill_raster_path = os.path.join(target_dir, f'backfill_{basename}')
     pygeoprocessing.convolve_2d(
-        (clip_raster_path, 1), (kernel_raster_path, 1),
+        (base_raster_path, 1), (kernel_raster_path, 1),
         backfill_raster_path, ignore_nodata_and_edges=True,
         mask_nodata=False, normalize_kernel=True,
         working_dir=target_dir)
 
     base_nodata = base_raster_info['nodata'][0]
     pygeoprocessing.raster_calculator(
-        [(clip_raster_path, 1), (backfill_raster_path, 1),
+        [(base_raster_path, 1), (backfill_raster_path, 1),
          (base_nodata, 'raw')], _fill_nodata_op, target_filled_raster_path,
         gdal.GDT_Float32, base_nodata)
-    os.remove(clip_raster_path)
     os.remove(kernel_raster_path)
     os.remove(backfill_raster_path)
 
@@ -187,42 +185,89 @@ def clip_fill_scale(
 
     for raster_id, raster_path in [
             ('value', value_raster_path),
-            ('scale', scale_raster_path)]:
+            ('scale', scale_raster_path),
+            ('class', class_raster_path)]:
+        raster_info = pygeoprocessing.get_raster_info(raster_path)
+        clip_raster_path = os.path.join(
+            target_dir, f'clip_{os.path.basename(raster_path)}')
+        clip_task = task_graph.add_task(
+            func=pygeoprocessing.warp_raster,
+            args=(
+                raster_path, raster_info['pixel_size'],
+                clip_raster_path, 'near'),
+            kwargs={'target_bb': bounding_box},
+            target_path_list=[clip_raster_path],
+            task_name=f'clip {raster_path} to {clip_raster_path}')
+
         fill_raster_path = os.path.join(
             target_dir, f'fill_{os.path.basename(raster_path)}')
         fill_task = task_graph.add_task(
-            func=clip_and_fill_by_convolution,
+            func=fill_by_convolution,
             args=(
-                raster_path, bounding_box, MAX_FILL_DIST_DEGREES,
+                clip_raster_path, MAX_FILL_DIST_DEGREES,
                 fill_raster_path),
             target_path_list=[fill_raster_path],
+            dependent_task_list=[clip_task],
             task_name=f'clip and fill {raster_path} to {fill_raster_path}')
         task_path_map[raster_id] = {
             'task': fill_task,
             'path': fill_raster_path}
 
-    scaled_biomass_raster_path = os.path.join(
+    scaled_value_raster_path = os.path.join(
         target_dir,
-        f"scaled_{os.path.basename(task_path_map['timber']['path'])}")
+        f"scaled_{os.path.basename(task_path_map['value']['path'])}")
 
+    # the biomass zones are uniquely identified by their unique floating
+    # point values. Jeff said this was okay.
+    no_fill_scale_raster_path = os.path.join(
+        target_dir, f'no_fill_scale_{os.path.basename(raster_path)}')
     scale_task = task_graph.add_task(
         func=scale_value,
         args=(
             task_path_map['value']['path'],
             task_path_map['scale']['path'],
-            class_raster_path,
+            task_path_map['class']['path'],
             lulc_raster_path,
             valid_lulc_code_list,
             mask_vector_path, mask_vector_where_filter,
-            scaled_biomass_raster_path),
-        target_path_list=[scaled_biomass_raster_path],
+            no_fill_scale_raster_path),
+        target_path_list=[no_fill_scale_raster_path],
         dependent_task_list=[
             task_path_map[raster_id]['task']
-            for raster_id in ['timber', 'npp', 'esa']],
+            for raster_id in ['value', 'scale', 'class']],
         task_name=(
-            f"scale {task_path_map['timber']['path']} to "
-            f"{scaled_biomass_raster_path}"))
-    return (scaled_biomass_raster_path, scale_task)
+            f"scale {task_path_map['value']['path']} to "
+            f"{no_fill_scale_raster_path}"))
+
+    # fill the scale
+    no_mask_fill_scale_raster_path = os.path.join(
+        target_dir, f'no_mask_fill_scale_{os.path.basename(raster_path)}')
+    fill_scale_task = task_graph.add_task(
+        func=fill_by_convolution,
+        args=(
+            no_fill_scale_raster_path, MAX_FILL_DIST_DEGREES,
+            no_mask_fill_scale_raster_path),
+        target_path_list=[no_mask_fill_scale_raster_path],
+        dependent_task_list=[scale_task],
+        task_name=f'clip and fill {raster_path} to {fill_raster_path}')
+
+    # mask the result to the feature
+    mask_scale_task = task_graph.add_task(
+        func=pygeoprocessing.mask_raster,
+        args=(
+            (no_mask_fill_scale_raster_path, 1), mask_vector_path,
+            scaled_value_raster_path),
+        kwargs={'where_clause': mask_vector_where_filter},
+        dependent_task_list=[fill_scale_task],
+        target_path_list=[scaled_value_raster_path],
+        task_name=f'mask final result of {scaled_value_raster_path}')
+
+    # clip and mask by convolution
+    task_path_map[raster_id] = {
+        'task': fill_scale_task,
+        'path': scaled_value_raster_path}
+
+    return (scaled_value_raster_path, scale_task)
 
 
 def get_unique_raster_values(raster_path):
@@ -237,7 +282,7 @@ def get_unique_raster_values(raster_path):
 def scale_value(
         value_raster_path, scale_raster_path, class_raster_path,
         lulc_raster_path, valid_lulc_code_list, mask_vector_path,
-        mask_vector_where_filter, target_scaled_raster_path):
+        mask_vector_where_filter, target_scaled_value_raster_path):
     """Scale biomass by NPP.
 
     Scale biomass by mean NPP in unique zones in regions that are allowed
@@ -256,29 +301,27 @@ def scale_value(
             codes are defined.
         mask_vector_path (str): path to a vector used to mask raster stack.
         mask_vector_where_filter (str): where filter to indicate which
-            feature to filter by.
-        target_scaled_raster_path (str): created by this function,
+            feature to filter by.dd
+        target_scaled_value_raster_path (str): created by this function,
             values from biomass raster scaled by NPP in unique functional
             zones.
 
     Return:
         None
     """
-    # the biomass zones are uniquely identified by their unique floating
-    # point values. Jeff said this was okay.
     unique_class_vals = get_unique_raster_values(class_raster_path)
 
     # Align raster stack
-    working_dir = os.path.dirname(target_scaled_raster_path)
+    working_dir = os.path.dirname(target_scaled_value_raster_path)
     base_raster_path_list = [
-        biomass_raster_path, esa_lulc_raster_path, npp_raster_path]
+        value_raster_path, lulc_raster_path, scale_raster_path]
     aligned_raster_path_list = [
         os.path.join(working_dir, f'aligned_{os.path.basename(path)}')
         for path in base_raster_path_list]
-    esa_info = pygeoprocessing.get_raster_info(esa_lulc_raster_path)
+    lulc_info = pygeoprocessing.get_raster_info(lulc_raster_path)
     pygeoprocessing.align_and_resize_raster_stack(
         base_raster_path_list, aligned_raster_path_list,
-        ['average', 'average', 'near'], esa_info['pixel_size'],
+        ['near', 'near', 'near'], lulc_info['pixel_size'],
         'intersection', vector_mask_options={
             'mask_vector_path': mask_vector_path,
             'mask_vector_where_filter': mask_vector_where_filter})
@@ -286,60 +329,58 @@ def scale_value(
     # create output raster
     target_nodata = -1
     pygeoprocessing.new_raster_from_base(
-        aligned_raster_path_list[0], target_scaled_raster_path,
+        aligned_raster_path_list[0], target_scaled_value_raster_path,
         gdal.GDT_Float32, [target_nodata])
-    target_scaled_biomass_raster = gdal.OpenEx(
-        target_scaled_raster_path, gdal.OF_RASTER | gdal.GA_Update)
+    target_scaled_value_raster = gdal.OpenEx(
+        target_scaled_value_raster_path, gdal.OF_RASTER | gdal.GA_Update)
     target_scaled_biomass_band = (
-        target_scaled_biomass_raster.GetRasterBand(1))
+        target_scaled_value_raster.GetRasterBand(1))
 
     # open these for fast reading
-    biomass_raster = gdal.OpenEx(aligned_raster_path_list[0], gdal.OF_RASTER)
-    biomass_band = biomass_raster.GetRasterBand(1)
-    esa_raster = gdal.OpenEx(aligned_raster_path_list[1], gdal.OF_RASTER)
-    esa_band = esa_raster.GetRasterBand(1)
-    npp_raster = gdal.OpenEx(aligned_raster_path_list[2], gdal.OF_RASTER)
-    npp_band = npp_raster.GetRasterBand(1)
+    base_raster = gdal.OpenEx(aligned_raster_path_list[0], gdal.OF_RASTER)
+    base_band = base_raster.GetRasterBand(1)
+    lulc_raster = gdal.OpenEx(aligned_raster_path_list[1], gdal.OF_RASTER)
+    lulc_band = lulc_raster.GetRasterBand(1)
+    scale_raster = gdal.OpenEx(aligned_raster_path_list[2], gdal.OF_RASTER)
+    scale_band = scale_raster.GetRasterBand(1)
 
     # calculate the mean per biomass value per biomass zone
-    npp_sum = collections.defaultdict(float)
-    npp_count = collections.defaultdict(int)
+    scale_sum = collections.defaultdict(float)
+    scale_count = collections.defaultdict(int)
     for offset_dict in pygeoprocessing.iterblocks(
             (aligned_raster_path_list[0], 1), offset_only=True):
-        npp_array = npp_band.ReadAsArray(**offset_dict)
-        biomass_array = biomass_band.ReadAsArray(**offset_dict)
-        esa_array = esa_band.ReadAsArray(**offset_dict).astype(numpy.int32)
-        esa_timber_mask = numpy.in1d(
-            esa_array, lulc_timber_allowed_codes).reshape(esa_array.shape)
-        for biomass_zone_val in unique_class_vals:
-            valid_biomass_mask = numpy.isclose(
-                biomass_array, biomass_zone_val)
-            valid_mask = valid_biomass_mask & esa_timber_mask
-            npp_count[biomass_zone_val] += numpy.count_nonzero(valid_mask)
-            npp_sum[biomass_zone_val] += numpy.sum(npp_array[valid_mask])
+        scale_array = scale_band.ReadAsArray(**offset_dict)
+        base_array = base_band.ReadAsArray(**offset_dict)
+        lulc_array = lulc_band.ReadAsArray(**offset_dict).astype(numpy.int32)
+        lulc_mask = numpy.in1d(
+            lulc_array, valid_lulc_code_list).reshape(lulc_array.shape)
+        for class_val in unique_class_vals:
+            valid_base_mask = numpy.isclose(base_array, class_val)
+            valid_mask = valid_base_mask & lulc_mask
+            scale_count[class_val] += numpy.count_nonzero(valid_mask)
+            scale_sum[class_val] += numpy.sum(scale_array[valid_mask])
 
     # adjust the biomass value by the npp mean
     for offset_dict in pygeoprocessing.iterblocks(
             (aligned_raster_path_list[0], 1), offset_only=True):
-        npp_array = npp_band.ReadAsArray(**offset_dict)
-        biomass_array = biomass_band.ReadAsArray(**offset_dict)
-        esa_array = esa_band.ReadAsArray(**offset_dict).astype(numpy.int32)
-        target_scaled_biomass_array = numpy.empty(npp_array.shape)
-        target_scaled_biomass_array[:] = target_nodata
-        esa_timber_mask = numpy.in1d(
-            esa_array, lulc_timber_allowed_codes).reshape(esa_array.shape)
-        for biomass_zone_val in unique_class_vals:
-            if npp_count[biomass_zone_val] == 0:
+        scale_array = scale_band.ReadAsArray(**offset_dict)
+        base_array = base_band.ReadAsArray(**offset_dict)
+        lulc_array = lulc_band.ReadAsArray(**offset_dict).astype(numpy.int32)
+        target_scaled_base_array = numpy.empty(scale_array.shape)
+        target_scaled_base_array[:] = target_nodata
+        lulc_mask = numpy.in1d(
+            lulc_array, valid_lulc_code_list).reshape(lulc_array.shape)
+        for class_val in unique_class_vals:
+            if scale_count[class_val] == 0:
                 continue
             npp_mean = (
-                npp_sum[biomass_zone_val] / npp_count[biomass_zone_val])
-            valid_biomass_mask = numpy.isclose(
-                biomass_array, biomass_zone_val)
-            valid_mask = valid_biomass_mask & esa_timber_mask
-            target_scaled_biomass_array[valid_mask] = (
-                biomass_array[valid_mask] * npp_array[valid_mask] / npp_mean)
+                scale_sum[class_val] / scale_count[class_val])
+            valid_biomass_mask = numpy.isclose(base_array, class_val)
+            valid_mask = valid_biomass_mask & lulc_mask
+            target_scaled_base_array[valid_mask] = (
+                base_array[valid_mask] * scale_array[valid_mask] / npp_mean)
         target_scaled_biomass_band.WriteArray(
-            target_scaled_biomass_array,
+            target_scaled_base_array,
             xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])
 
 
@@ -373,9 +414,17 @@ def main():
             os.makedirs(country_workspace)
         except OSError:
             pass
-        scaled_raster_task_tuple = process_timber_stack(
-            RASTER_ID_PATH_STACK, COUNTRY_VECTOR_PATH,
-            f"iso3='{country_iso}'", country_workspace, task_graph)
+
+        # class_raster_path, value_raster_path, scale_raster_path,
+        # lulc_raster_path, valid_lulc_code_list,
+        # mask_vector_path, mask_vector_where_filter,
+        # target_dir, task_graph):
+
+        scaled_raster_task_tuple = clip_fill_scale(
+            TIMBER_RASTER_PATH, TIMBER_RASTER_PATH, NPP_RASTER_PATH,
+            ESA_LULC_RASTER_PATH, FORESTRY_VALID_LULC_LIST,
+            COUNTRY_VECTOR_PATH, f"iso3='{country_iso}'", country_workspace,
+            task_graph)
         scaled_timber_raster_path_list.append(scaled_raster_task_tuple)
 
     task_graph.join()

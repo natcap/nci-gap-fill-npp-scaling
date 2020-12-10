@@ -453,6 +453,7 @@ def stitch_worker(work_queue, target_global_raster_path):
     global_info = pygeoprocessing.get_raster_info(target_global_raster_path)
     global_inv_gt = gdal.InvGeoTransform(global_info['geotransform'])
     global_nodata = global_info['nodata'][0]
+    n_rows, n_cols = global_info['raster_size']
 
     while True:
         payload = work_queue.get()
@@ -466,14 +467,21 @@ def stitch_worker(work_queue, target_global_raster_path):
             global_inv_gt, base_gt[0], base_gt[3])
         for offset_dict, base_array in pygeoprocessing.iterblocks(
                 (base_raster_path, 1)):
+            xoff = global_xoff+offset_dict['xoff']
+            yoff = global_yoff+offset_dict['yoff']
+            win_xsize = offset_dict['win_xsize']
+            win_ysize = offset_dict['win_ysize']
+            if xoff+win_xsize > n_cols:
+                win_xsize += n_cols - (xoff+win_xsize)
+            if yoff+win_ysize > n_rows:
+                win_ysize += n_rows - (yoff+win_ysize)
             global_array = global_band.ReadAsArray(
-                xoff=global_xoff+offset_dict['xoff'],
-                yoff=global_yoff+offset_dict['yoff'],
-                win_xsize=offset_dict['win_xsize'],
-                win_ysize=offset_dict['win_ysize'])
+                xoff=xoff, yoff=yoff,
+                win_xsize=win_xsize, win_ysize=win_ysize)
             base_array[numpy.isclose(base_array, base_nodata)] = global_nodata
             valid_mask = numpy.isclose(global_array, global_nodata)
             global_array[valid_mask] = base_array[valid_mask]
+
             global_band.WriteArray(
                 global_array,
                 xoff=global_xoff+offset_dict['xoff'],

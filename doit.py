@@ -472,9 +472,9 @@ def stitch_worker(work_queue, target_global_raster_path):
             win_xsize = offset_dict['win_xsize']
             win_ysize = offset_dict['win_ysize']
             if xoff+win_xsize > n_cols:
-                win_xsize += n_cols - (xoff+win_xsize)
+                win_xsize -= n_cols - (xoff+win_xsize)
             if yoff+win_ysize > n_rows:
-                win_ysize += n_rows - (yoff+win_ysize)
+                win_ysize -= n_rows - (yoff+win_ysize)
             global_array = global_band.ReadAsArray(
                 xoff=xoff, yoff=yoff,
                 win_xsize=win_xsize, win_ysize=win_ysize)

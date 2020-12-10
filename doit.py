@@ -475,6 +475,7 @@ def stitch_worker(work_queue, target_global_raster_path):
                 win_xsize -= n_cols - (xoff+win_xsize)
             if yoff+win_ysize > n_rows:
                 win_ysize -= n_rows - (yoff+win_ysize)
+            LOGGER.debug(f'stitching {xoff} {yoff} {win_xsize} {win_ysize}')
             global_array = global_band.ReadAsArray(
                 xoff=xoff, yoff=yoff,
                 win_xsize=win_xsize, win_ysize=win_ysize)
@@ -483,9 +484,7 @@ def stitch_worker(work_queue, target_global_raster_path):
             global_array[valid_mask] = base_array[valid_mask]
 
             global_band.WriteArray(
-                global_array,
-                xoff=global_xoff+offset_dict['xoff'],
-                yoff=global_yoff+offset_dict['yoff'])
+                global_array, xoff=xoff, yoff=yoff)
 
         global_band.FlushCache()
 

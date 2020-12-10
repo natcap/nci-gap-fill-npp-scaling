@@ -499,7 +499,7 @@ def stitch_worker(work_queue, target_global_raster_path):
                 LOGGER.debug(f'new win_ysize {win_ysize}')
             # change the size of the array if needed
             base_array = base_array[0:win_ysize, 0:win_xsize]
-            LOGGER.debug(f'stitching {xoff} {yoff} {win_xsize} {win_ysize}')
+            LOGGER.debug(f'stitching {target_global_raster_path} {xoff} {yoff} {win_xsize} {win_ysize}')
             global_array = global_band.ReadAsArray(
                 xoff=xoff, yoff=yoff,
                 win_xsize=win_xsize, win_ysize=win_ysize)

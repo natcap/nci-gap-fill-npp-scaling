@@ -485,7 +485,7 @@ def stitch_worker(work_queue, target_global_raster_path):
                     (base_raster_path, 1)):
                 xoff = int(global_xoff)+offset_dict['xoff']
                 if xoff >= n_cols:
-                    LOGGER.warn(f'xoff >= n_cols ({xoff} >= {n_cols}) for {base_raster_path} with gt {base_gt}')
+                    LOGGER.warn(f'xoff >= n_cols ({xoff} >= {n_cols}) (global_xoff: {global_xoff}) for {base_raster_path} with gt {base_gt} {offset_dict}')
                     continue
                 yoff = int(global_yoff)+offset_dict['yoff']
                 if yoff >= n_rows:

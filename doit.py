@@ -23,7 +23,7 @@ import taskgraph
 
 gdal.SetCacheMax(2**27)
 
-N_CPUS = -1 # multiprocessing.cpu_count()
+N_CPUS = multiprocessing.cpu_count()
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -515,14 +515,14 @@ def main():
     worker_queue_list = []
     for (scenario_id, value_raster_path, class_raster_path,
          valid_lulc_code_list) in [
-            # ('timber', TIMBER_RASTER_PATH, TIMBER_RASTER_PATH,
-            #  FORESTRY_VALID_LULC_LIST,),
-            # ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
-            #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-            # ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-            #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-            # ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
-            #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+            ('timber', TIMBER_RASTER_PATH, TIMBER_RASTER_PATH,
+             FORESTRY_VALID_LULC_LIST,),
+            ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
+             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+            ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
+             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+            ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
+             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
             ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
              GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
             ]:
@@ -569,7 +569,6 @@ def main():
                 dependent_task_list=[scaled_task],
                 task_name=(f'''stitch callback {
                     scaled_raster_path} into {global_stitch_raster_path}'''))
-        break  # TODO: debug
 
     task_graph.join()
     task_graph.close()

@@ -600,7 +600,7 @@ def main():
 
             task_graph.add_task(
                 func=work_queue.put,
-                args=((scenario_id, scaled_raster_path)),
+                args=((scenario_id, scaled_raster_path),),
                 dependent_task_list=[scaled_task],
                 task_name=(f'''stitch callback {
                     scaled_raster_path} into {global_stitch_raster_path}'''))

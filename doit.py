@@ -472,9 +472,15 @@ def stitch_worker(work_queue, target_global_raster_path):
             win_xsize = offset_dict['win_xsize']
             win_ysize = offset_dict['win_ysize']
             if xoff+win_xsize > n_cols:
+                LOGGER.debug(f'xoff+win_xsize > n_cols: {xoff}+{win_xsize} > {n_cols}')
                 win_xsize -= n_cols - (xoff+win_xsize)
+                LOGGER.debug(f'new win_xsize {win_xsize}')
             if yoff+win_ysize > n_rows:
+                LOGGER.debug(f'yoff+win_ysize > n_rows: {yoff}+{win_ysize} > {n_rows}')
                 win_ysize -= n_rows - (yoff+win_ysize)
+                LOGGER.debug(f'new win_ysize {win_ysize}')
+            # change the size of the array if needed
+            base_array = base_array[0:win_ysize, 0:win_xsize]
             LOGGER.debug(f'stitching {xoff} {yoff} {win_xsize} {win_ysize}')
             global_array = global_band.ReadAsArray(
                 xoff=xoff, yoff=yoff,

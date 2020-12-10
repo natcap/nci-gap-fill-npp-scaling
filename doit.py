@@ -602,6 +602,7 @@ def main():
                 func=work_queue.put,
                 args=((scenario_id, scaled_raster_path),),
                 dependent_task_list=[scaled_task],
+                transient_run=True,
                 task_name=(f'''stitch callback {
                     scaled_raster_path} into {global_stitch_raster_path}'''))
 

@@ -475,7 +475,7 @@ def stitch_worker(work_queue, target_global_raster_path):
             LOGGER.debug(f'stitching: got payload {payload}')
             if payload == 'STOP':
                 break
-            base_raster_path = payload
+            scenario_id, base_raster_path = payload
             base_info = pygeoprocessing.get_raster_info(base_raster_path)
             base_nodata = base_info['nodata'][0]
             base_gt = base_info['geotransform']
@@ -600,7 +600,7 @@ def main():
 
             task_graph.add_task(
                 func=work_queue.put,
-                args=(scaled_raster_path,),
+                args=((scenario_id, scaled_raster_path)),
                 dependent_task_list=[scaled_task],
                 task_name=(f'''stitch callback {
                     scaled_raster_path} into {global_stitch_raster_path}'''))

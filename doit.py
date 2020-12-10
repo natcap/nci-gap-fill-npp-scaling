@@ -510,7 +510,6 @@ def main():
     country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
     country_layer = country_vector.GetLayer()
     # try just on costa ricas
-    debug_country_set = set(['MEX'])
     manager = multiprocessing.Manager()
     worker_queue_list = []
     for (scenario_id, value_raster_path, class_raster_path,
@@ -545,9 +544,6 @@ def main():
         for country_feature in country_layer:
             country_iso = country_feature.GetField('ISO3')
             if country_iso is None:
-                continue
-            if country_iso not in debug_country_set:
-
                 continue
             LOGGER.info(f'processing {country_iso}')
             country_workspace = os.path.join(

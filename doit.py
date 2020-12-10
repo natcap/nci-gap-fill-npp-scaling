@@ -468,7 +468,7 @@ def stitch_worker(work_queue, target_global_raster_path):
         global_info = pygeoprocessing.get_raster_info(target_global_raster_path)
         global_inv_gt = gdal.InvGeoTransform(global_info['geotransform'])
         global_nodata = global_info['nodata'][0]
-        n_rows, n_cols = global_info['raster_size']
+        n_cols, n_rows = global_info['raster_size']
 
         while True:
             payload = work_queue.get()

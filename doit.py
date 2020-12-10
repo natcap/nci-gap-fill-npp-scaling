@@ -461,6 +461,7 @@ def scale_value(
 def stitch_worker(work_queue, target_global_raster_path):
     """Stitch base, a smaller raster, into target, a global one."""
     try:
+        LOGGER.info(f'starting up stitching for {target_global_raster_path}')
         global_raster = gdal.OpenEx(
             target_global_raster_path, gdal.OF_RASTER | gdal.GA_Update)
         global_band = global_raster.GetRasterBand(1)
@@ -471,6 +472,7 @@ def stitch_worker(work_queue, target_global_raster_path):
 
         while True:
             payload = work_queue.get()
+            LOGGER.debug(f'stitching: got payload {payload}')
             if payload == 'STOP':
                 break
             base_raster_path = payload
@@ -483,6 +485,7 @@ def stitch_worker(work_queue, target_global_raster_path):
                     (base_raster_path, 1)):
                 xoff = int(global_xoff)+offset_dict['xoff']
                 if xoff >= n_cols:
+                    LOGGER.warn(f'xoff >= n_cols ({xoff} >= {n_cols}) for {base_raster_path}')
                     continue
                 yoff = int(global_yoff)+offset_dict['yoff']
                 if yoff >= n_rows:

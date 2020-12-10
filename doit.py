@@ -460,66 +460,70 @@ def scale_value(
 
 def stitch_worker(work_queue, target_global_raster_path):
     """Stitch base, a smaller raster, into target, a global one."""
-    global_raster = gdal.OpenEx(
-        target_global_raster_path, gdal.OF_RASTER | gdal.GA_Update)
-    global_band = global_raster.GetRasterBand(1)
-    global_info = pygeoprocessing.get_raster_info(target_global_raster_path)
-    global_inv_gt = gdal.InvGeoTransform(global_info['geotransform'])
-    global_nodata = global_info['nodata'][0]
-    n_rows, n_cols = global_info['raster_size']
+    try:
+        global_raster = gdal.OpenEx(
+            target_global_raster_path, gdal.OF_RASTER | gdal.GA_Update)
+        global_band = global_raster.GetRasterBand(1)
+        global_info = pygeoprocessing.get_raster_info(target_global_raster_path)
+        global_inv_gt = gdal.InvGeoTransform(global_info['geotransform'])
+        global_nodata = global_info['nodata'][0]
+        n_rows, n_cols = global_info['raster_size']
 
-    while True:
-        payload = work_queue.get()
-        if payload == 'STOP':
-            break
-        base_raster_path = payload
-        base_info = pygeoprocessing.get_raster_info(base_raster_path)
-        base_nodata = base_info['nodata'][0]
-        base_gt = base_info['geotransform']
-        global_xoff, global_yoff = gdal.ApplyGeoTransform(
-            global_inv_gt, base_gt[0], base_gt[3])
-        for offset_dict, base_array in pygeoprocessing.iterblocks(
-                (base_raster_path, 1)):
-            xoff = int(global_xoff)+offset_dict['xoff']
-            if xoff >= n_cols:
-                continue
-            yoff = int(global_yoff)+offset_dict['yoff']
-            if yoff >= n_rows:
-                continue
-            win_xsize = offset_dict['win_xsize']
-            win_ysize = offset_dict['win_ysize']
-            if xoff+win_xsize > n_cols:
-                LOGGER.debug(f'xoff+win_xsize > n_cols: {xoff}+{win_xsize} > {n_cols}')
-                win_xsize += n_cols - (xoff+win_xsize)
-                LOGGER.debug(f'new win_xsize {win_xsize}')
+        while True:
+            payload = work_queue.get()
+            if payload == 'STOP':
+                break
+            base_raster_path = payload
+            base_info = pygeoprocessing.get_raster_info(base_raster_path)
+            base_nodata = base_info['nodata'][0]
+            base_gt = base_info['geotransform']
+            global_xoff, global_yoff = gdal.ApplyGeoTransform(
+                global_inv_gt, base_gt[0], base_gt[3])
+            for offset_dict, base_array in pygeoprocessing.iterblocks(
+                    (base_raster_path, 1)):
+                xoff = int(global_xoff)+offset_dict['xoff']
+                if xoff >= n_cols:
+                    continue
+                yoff = int(global_yoff)+offset_dict['yoff']
+                if yoff >= n_rows:
+                    continue
+                win_xsize = offset_dict['win_xsize']
+                win_ysize = offset_dict['win_ysize']
+                if xoff+win_xsize > n_cols:
+                    LOGGER.debug(f'xoff+win_xsize > n_cols: {xoff}+{win_xsize} > {n_cols}')
+                    win_xsize += n_cols - (xoff+win_xsize)
+                    LOGGER.debug(f'new win_xsize {win_xsize}')
 
-            if yoff+win_ysize > n_rows:
-                LOGGER.debug(f'yoff+win_ysize > n_rows: {yoff}+{win_ysize} > {n_rows}')
-                win_ysize += n_rows - (yoff+win_ysize)
-                LOGGER.debug(f'new win_ysize {win_ysize}')
-            # change the size of the array if needed
-            base_array = base_array[0:win_ysize, 0:win_xsize]
-            LOGGER.debug(f'stitching {target_global_raster_path} {xoff} {yoff} {win_xsize} {win_ysize}')
-            global_array = global_band.ReadAsArray(
-                xoff=xoff, yoff=yoff,
-                win_xsize=win_xsize, win_ysize=win_ysize)
-            LOGGER.debug(f'base_array.shape global_array.shape {base_array.shape} {global_array.shape}')
-            base_array[numpy.isclose(base_array, base_nodata)] = global_nodata
-            valid_mask = numpy.isclose(global_array, global_nodata)
-            global_array[valid_mask] = base_array[valid_mask]
+                if yoff+win_ysize > n_rows:
+                    LOGGER.debug(f'yoff+win_ysize > n_rows: {yoff}+{win_ysize} > {n_rows}')
+                    win_ysize += n_rows - (yoff+win_ysize)
+                    LOGGER.debug(f'new win_ysize {win_ysize}')
+                # change the size of the array if needed
+                base_array = base_array[0:win_ysize, 0:win_xsize]
+                LOGGER.debug(f'stitching {target_global_raster_path} {xoff} {yoff} {win_xsize} {win_ysize}')
+                global_array = global_band.ReadAsArray(
+                    xoff=xoff, yoff=yoff,
+                    win_xsize=win_xsize, win_ysize=win_ysize)
+                LOGGER.debug(f'base_array.shape global_array.shape {base_array.shape} {global_array.shape}')
+                base_array[numpy.isclose(base_array, base_nodata)] = global_nodata
+                valid_mask = numpy.isclose(global_array, global_nodata)
+                global_array[valid_mask] = base_array[valid_mask]
 
-            global_band.WriteArray(
-                global_array, xoff=xoff, yoff=yoff)
+                global_band.WriteArray(
+                    global_array, xoff=xoff, yoff=yoff)
 
-        global_band.FlushCache()
+            global_band.FlushCache()
 
-    global_band = None
-    global_raster = None
-    LOGGER.info(
-        f'all done stitching, building overviews '
-        f'for {target_global_raster_path}')
-    ecoshard.build_overviews(
-        target_global_raster_path, interpolation_method='average')
+        global_band = None
+        global_raster = None
+        LOGGER.info(
+            f'all done stitching, building overviews '
+            f'for {target_global_raster_path}')
+        ecoshard.build_overviews(
+            target_global_raster_path, interpolation_method='average')
+    except Exception:
+        LOGGER.exception(
+            f'exception on stitching {target_global_raster_path}')
 
 
 def main():

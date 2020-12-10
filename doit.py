@@ -61,7 +61,7 @@ CURRENT_METHANE_PROD_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'grazingLayers', 'current_grass_methane.tif')
 POTENTIAL_METHANE_PROD_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'grazingLayers', 'potential_methane_gap_filled_cur.tif')
-MAX_FILL_DIST_DEGREES = 1.0
+MAX_FILL_DIST_DEGREES = 0.5
 
 RASTER_ID_PATH_STACK = [
     ('esa', ESA_LULC_RASTER_PATH),

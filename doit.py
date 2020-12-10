@@ -21,7 +21,7 @@ import numpy
 import scipy.ndimage
 import taskgraph
 
-gdal.SetCacheMax(2**27)
+gdal.SetCacheMax(2**26)
 
 N_CPUS = multiprocessing.cpu_count()
 

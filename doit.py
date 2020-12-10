@@ -169,11 +169,24 @@ def fill_by_convolution(
 
 
 def _clip_raster(raster_path, bounding_box, target_clip_raster_path):
-    """Clip raster to target."""
+    """Clip raster to target.
+
+    Args:
+        raster_path (str): path to base raster
+        bounding_box (tuple): path to 4 element lat/lng bounding box
+        target_clip_raster_path (str): raster clipped to the bounding
+            box.
+
+    """
     raster_info = pygeoprocessing.get_raster_info(raster_path)
     nan_scrub_raster_path = os.path.join(
         os.path.dirname(target_clip_raster_path),
         f'nan_scrub_{os.path.basename(raster_path)}')
+    if bounding_box[0] <= -180:
+        bounding_box[0] = -179.99
+    if bounding_box[2] >= 180:
+        bounding_box[2] = 179.99
+
     pygeoprocessing.warp_raster(
         raster_path, raster_info['pixel_size'],
         nan_scrub_raster_path, 'near', target_bb=bounding_box)

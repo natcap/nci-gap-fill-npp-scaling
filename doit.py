@@ -503,6 +503,7 @@ def stitch_worker(work_queue, target_global_raster_path):
             global_array = global_band.ReadAsArray(
                 xoff=xoff, yoff=yoff,
                 win_xsize=win_xsize, win_ysize=win_ysize)
+            LOGGER.debug(f'base_array.shape global_array.shape {base_array.shape} {global_array.shape}')
             base_array[numpy.isclose(base_array, base_nodata)] = global_nodata
             valid_mask = numpy.isclose(global_array, global_nodata)
             global_array[valid_mask] = base_array[valid_mask]

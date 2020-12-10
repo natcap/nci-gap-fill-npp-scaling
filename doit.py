@@ -468,13 +468,18 @@ def stitch_worker(work_queue, target_global_raster_path):
         for offset_dict, base_array in pygeoprocessing.iterblocks(
                 (base_raster_path, 1)):
             xoff = int(global_xoff)+offset_dict['xoff']
+            if xoff >= n_cols:
+                continue
             yoff = int(global_yoff)+offset_dict['yoff']
+            if yoff >= n_rows:
+                continue
             win_xsize = offset_dict['win_xsize']
             win_ysize = offset_dict['win_ysize']
             if xoff+win_xsize > n_cols:
                 LOGGER.debug(f'xoff+win_xsize > n_cols: {xoff}+{win_xsize} > {n_cols}')
                 win_xsize -= n_cols - (xoff+win_xsize)
                 LOGGER.debug(f'new win_xsize {win_xsize}')
+
             if yoff+win_ysize > n_rows:
                 LOGGER.debug(f'yoff+win_ysize > n_rows: {yoff}+{win_ysize} > {n_rows}')
                 win_ysize -= n_rows - (yoff+win_ysize)

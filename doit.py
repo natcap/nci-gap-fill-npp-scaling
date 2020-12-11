@@ -13,6 +13,7 @@ import collections
 import logging
 import multiprocessing
 import os
+import queue
 
 from osgeo import gdal
 import ecoshard
@@ -36,7 +37,8 @@ logging.getLogger('pygeoprocessing').setLevel(logging.WARN)
 
 ECOSHARD_ROOT = (
     'https://storage.googleapis.com/ecoshard-root/nci-gap-fill-npp-scaling/'
-    'Data-20201207T190350Z-001_md5_63b09dd643d3e686a5d83a9e340c90d2.zip')
+    'Data-20201210-2-timber-layer_md5_dbf4ef0857bbe7f8fafda800a9eae099.zip')
+
 WORKSPACE_DIR = 'workspace'
 DATA_DIR = os.path.join(WORKSPACE_DIR, 'data')
 COUNTRY_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'country_workspaces')
@@ -50,8 +52,11 @@ NPP_RASTER_PATH = os.path.join(
     'MOD17A3_Science_NPP_mean_00_15.tif')
 GRAZING_ZONE_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'supportingLayers', 'aez.tif')
-TIMBER_RASTER_PATH = os.path.join(
+ANNUAL_BIOMASS_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'timberLayers', 'global_annual_biomass_per_ha.tif')
+PLT_AN_BIO_PROJ_RASTER_PATH = os.path.join(
+    DATA_DIR, 'Data', 'timberLayers', 'plt_an_bio_proj.tif')
+
 
 CURRENT_MEAT_PROD_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'grazingLayers', 'current_grass_meat.tif')
@@ -63,28 +68,11 @@ POTENTIAL_METHANE_PROD_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'grazingLayers', 'potential_methane_gap_filled_cur.tif')
 MAX_FILL_DIST_DEGREES = 0.5
 
-RASTER_ID_PATH_STACK = [
-    ('esa', ESA_LULC_RASTER_PATH),
-    ('npp', NPP_RASTER_PATH),
-    ('grazing_zone', GRAZING_ZONE_RASTER_PATH),
-    ('timber', TIMBER_RASTER_PATH),
-    ('cur_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH),
-    ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH),
-    ('cur_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH),
-    ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH)
-]
-
 FORESTRY_VALID_LULC_LIST = [
     50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170]
 GRAZING_VALID_LULC_LIST = [
     30, 40, 100, 110, 120, 121, 122, 130, 140, 150, 152, 153, 180, 200, 201,
     202, 203]
-
-PRODUCTION_ZONE_RASTER_STACK = [
-    GRAZING_ZONE_RASTER_PATH,
-    TIMBER_RASTER_PATH,
-]
-
 
 def _fill_nodata_op(base, fill, nodata):
     result = numpy.copy(base)
@@ -245,7 +233,7 @@ def clip_fill_scale(
             ('value', value_raster_path),
             ('scale', scale_raster_path),
             ('class', class_raster_path)]:
-        # this can happen because timber uses value as its class, skip it
+        # this can happen because biomass uses value as its class, skip it
         if raster_id == 'class' and class_raster_path == value_raster_path:
             task_path_map['class'] = task_path_map['value']
             continue
@@ -471,9 +459,16 @@ def stitch_worker(work_queue, target_global_raster_path):
         n_cols, n_rows = global_info['raster_size']
 
         while True:
-            payload = work_queue.get()
+            try:
+                payload = work_queue.get(timeout=60)
+            except queue.Empty:
+                LOGGER.info(
+                    f'work queue empty on {target_global_raster_path}, '
+                    'waiting for more')
             LOGGER.debug(f'stitching: got payload {payload}')
             if payload == 'STOP':
+                LOGGER.debug(
+                    f'got stop, stopping on {target_global_raster_path}')
                 break
             scenario_id, base_raster_path = payload
             base_info = pygeoprocessing.get_raster_info(base_raster_path)
@@ -553,8 +548,10 @@ def main():
     worker_queue_list = []
     for (scenario_id, value_raster_path, class_raster_path,
          valid_lulc_code_list) in [
-            ('timber', TIMBER_RASTER_PATH, TIMBER_RASTER_PATH,
-             FORESTRY_VALID_LULC_LIST,),
+            ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
+             ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+            ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
+             PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,)
             ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
              GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
             ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,

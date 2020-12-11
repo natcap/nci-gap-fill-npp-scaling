@@ -551,7 +551,7 @@ def main():
             ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
              ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
             ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
-             PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,)
+             PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
             ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
              GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
             ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,

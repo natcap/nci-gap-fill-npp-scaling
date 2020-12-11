@@ -24,7 +24,7 @@ import taskgraph
 
 gdal.SetCacheMax(2**26)
 
-N_CPUS = multiprocessing.cpu_count()//2
+N_CPUS = multiprocessing.cpu_count()
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -527,89 +527,92 @@ def stitch_worker(work_queue, target_global_raster_path):
 
 def main():
     """Entry point."""
-    for dir_path in [WORKSPACE_DIR, DATA_DIR, COUNTRY_WORKSPACE_DIR]:
-        try:
-            os.makedirs(dir_path)
-        except OSError:
-            pass
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, N_CPUS)
-    token_path = os.path.join(DATA_DIR, 'download.token')
-    fetch_task = task_graph.add_task(
-        func=ecoshard.download_and_unzip,
-        args=(ECOSHARD_ROOT, DATA_DIR),
-        kwargs={'target_token_path': token_path},
-        target_path_list=[token_path],
-        task_name=f'fetch {ECOSHARD_ROOT}')
-    fetch_task.join()
-
-    country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
-    country_layer = country_vector.GetLayer()
-    # try just on costa ricas
-    manager = multiprocessing.Manager()
-    worker_queue_list = []
-    for (scenario_id, value_raster_path, class_raster_path,
-         valid_lulc_code_list) in [
-            ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
-             ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-            ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
-             PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-            ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
-             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-            ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-            ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
-             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-            ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
-             GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-            ]:
-        global_stitch_raster_path = os.path.join(
-            WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')
-        value_info = pygeoprocessing.get_raster_info(value_raster_path)
-        pygeoprocessing.new_raster_from_base(
-            ESA_LULC_RASTER_PATH, global_stitch_raster_path,
-            value_info['datatype'], [-9999])
-
-        work_queue = manager.Queue()
-
-        stitch_worker_process = multiprocessing.Process(
-            target=stitch_worker,
-            args=(work_queue, global_stitch_raster_path))
-        stitch_worker_process.start()
-        worker_queue_list.append((stitch_worker_process, work_queue))
-
-        # create global stitch raster
-        for country_feature in country_layer:
-            country_iso = country_feature.GetField('ISO3')
-            if country_iso is None:
-                continue
-            LOGGER.info(f'processing {country_iso}')
-            country_workspace = os.path.join(
-                COUNTRY_WORKSPACE_DIR, f'{country_iso}_{scenario_id}')
+    try:
+        for dir_path in [WORKSPACE_DIR, DATA_DIR, COUNTRY_WORKSPACE_DIR]:
             try:
-                os.makedirs(country_workspace)
+                os.makedirs(dir_path)
             except OSError:
                 pass
+        task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, N_CPUS)
+        token_path = os.path.join(DATA_DIR, 'download.token')
+        fetch_task = task_graph.add_task(
+            func=ecoshard.download_and_unzip,
+            args=(ECOSHARD_ROOT, DATA_DIR),
+            kwargs={'target_token_path': token_path},
+            target_path_list=[token_path],
+            task_name=f'fetch {ECOSHARD_ROOT}')
+        fetch_task.join()
 
-            scaled_raster_path, scaled_task = clip_fill_scale(
-                value_raster_path, class_raster_path, NPP_RASTER_PATH,
-                ESA_LULC_RASTER_PATH, valid_lulc_code_list,
-                COUNTRY_VECTOR_PATH, f"iso3='{country_iso}'",
-                country_workspace, task_graph)
+        country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
+        country_layer = country_vector.GetLayer()
+        # try just on costa ricas
+        manager = multiprocessing.Manager()
+        worker_queue_list = []
+        for (scenario_id, value_raster_path, class_raster_path,
+             valid_lulc_code_list) in [
+                ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
+                 ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
+                 PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ]:
+            global_stitch_raster_path = os.path.join(
+                WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')
+            value_info = pygeoprocessing.get_raster_info(value_raster_path)
+            pygeoprocessing.new_raster_from_base(
+                ESA_LULC_RASTER_PATH, global_stitch_raster_path,
+                value_info['datatype'], [-9999])
 
-            task_graph.add_task(
-                func=work_queue.put,
-                args=((scenario_id, scaled_raster_path),),
-                dependent_task_list=[scaled_task],
-                transient_run=True,
-                task_name=(f'''stitch callback {
-                    scaled_raster_path} into {global_stitch_raster_path}'''))
+            work_queue = manager.Queue()
 
-    task_graph.join()
-    task_graph.close()
+            stitch_worker_process = multiprocessing.Process(
+                target=stitch_worker,
+                args=(work_queue, global_stitch_raster_path))
+            stitch_worker_process.start()
+            worker_queue_list.append((stitch_worker_process, work_queue))
 
-    for stitch_worker_process, work_queue in worker_queue_list:
-        work_queue.put('STOP')
-        stitch_worker_process.join()
+            # create global stitch raster
+            for country_feature in country_layer:
+                country_iso = country_feature.GetField('ISO3')
+                if country_iso is None:
+                    continue
+                LOGGER.info(f'processing {country_iso}')
+                country_workspace = os.path.join(
+                    COUNTRY_WORKSPACE_DIR, f'{country_iso}_{scenario_id}')
+                try:
+                    os.makedirs(country_workspace)
+                except OSError:
+                    pass
+
+                scaled_raster_path, scaled_task = clip_fill_scale(
+                    value_raster_path, class_raster_path, NPP_RASTER_PATH,
+                    ESA_LULC_RASTER_PATH, valid_lulc_code_list,
+                    COUNTRY_VECTOR_PATH, f"iso3='{country_iso}'",
+                    country_workspace, task_graph)
+
+                task_graph.add_task(
+                    func=work_queue.put,
+                    args=((scenario_id, scaled_raster_path),),
+                    dependent_task_list=[scaled_task],
+                    transient_run=True,
+                    task_name=(f'''stitch callback {
+                        scaled_raster_path} into {global_stitch_raster_path}'''))
+
+        task_graph.join()
+        task_graph.close()
+
+        for stitch_worker_process, work_queue in worker_queue_list:
+            work_queue.put('STOP')
+            stitch_worker_process.join()
+    except Exception:
+        LOGGER.exception('something bad happened in the the main scheduler')
 
 
 def _work_callback(work_queue, scaled_raster_path):

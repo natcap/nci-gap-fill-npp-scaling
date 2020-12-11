@@ -108,52 +108,51 @@ def fill_by_convolution(
     Return:
         None
     """
-    LOGGER.info(f'filling {base_raster_path}')
-    target_dir = os.path.dirname(target_filled_raster_path)
-    basename = os.path.basename(target_filled_raster_path)
-    base_raster_info = pygeoprocessing.get_raster_info(base_raster_path)
+    try:
+        LOGGER.info(f'filling {base_raster_path}')
+        target_dir = os.path.dirname(target_filled_raster_path)
+        basename = os.path.basename(target_filled_raster_path)
+        base_raster_info = pygeoprocessing.get_raster_info(base_raster_path)
 
-    # this ensures a minimum of 5 pixels in case the pixel size is too
-    # chunky
-    n = max(5, int(convolve_radius / base_raster_info['pixel_size'][0]))
-    base = numpy.zeros((n, n))
-    base[n//2, n//2] = 1
-    kernel_array = scipy.ndimage.filters.gaussian_filter(base, n/5)
-    kernel_raster_path = os.path.join(target_dir, f'kernel_{basename}')
-    geotransform = base_raster_info['geotransform']
-    pygeoprocessing.numpy_array_to_raster(
-        kernel_array, None, base_raster_info['pixel_size'],
-        (geotransform[0], geotransform[3]),
-        base_raster_info['projection_wkt'], kernel_raster_path)
-    backfill_raster_path = os.path.join(target_dir, f'backfill_{basename}')
-    # nan_scrubbed_raster_path = os.path.join(
-    #     target_dir, f'nan_scrubbed_{basename}')
-    # pygeoprocessing.raster_calculator(
-    #     [(base_raster_path, 1), (base_raster_info['nodata'][0], 'raw')],
-    #     _scrub_nan, nan_scrubbed_raster_path, gdal.GDT_Float32, -9999)
-    base_nodata = base_raster_info['nodata'][0]
-    if base_nodata is None:
-        target_datatype = gdal.GDT_Float64
-    else:
-        target_datatype = base_raster_info['datatype']
-    LOGGER.info(f'convolve 2d on {base_raster_path} {backfill_raster_path}')
-    pygeoprocessing.convolve_2d(
-        (base_raster_path, 1), (kernel_raster_path, 1),
-        backfill_raster_path, ignore_nodata_and_edges=True,
-        mask_nodata=False, normalize_kernel=True,
-        target_nodata=base_nodata,
-        target_datatype=target_datatype,
-        working_dir=target_dir)
+        # this ensures a minimum of 5 pixels in case the pixel size is too
+        # chunky
+        n = max(5, int(convolve_radius / base_raster_info['pixel_size'][0]))
+        base = numpy.zeros((n, n))
+        base[n//2, n//2] = 1
+        kernel_array = scipy.ndimage.filters.gaussian_filter(base, n/5)
+        kernel_raster_path = os.path.join(target_dir, f'kernel_{basename}')
+        geotransform = base_raster_info['geotransform']
+        pygeoprocessing.numpy_array_to_raster(
+            kernel_array, None, base_raster_info['pixel_size'],
+            (geotransform[0], geotransform[3]),
+            base_raster_info['projection_wkt'], kernel_raster_path)
+        backfill_raster_path = os.path.join(target_dir, f'backfill_{basename}')
+        base_nodata = base_raster_info['nodata'][0]
+        if base_nodata is None:
+            target_datatype = gdal.GDT_Float64
+        else:
+            target_datatype = base_raster_info['datatype']
+        LOGGER.info(f'convolve 2d on {base_raster_path} {backfill_raster_path}')
+        pygeoprocessing.convolve_2d(
+            (base_raster_path, 1), (kernel_raster_path, 1),
+            backfill_raster_path, ignore_nodata_and_edges=True,
+            mask_nodata=False, normalize_kernel=True,
+            target_nodata=base_nodata,
+            target_datatype=target_datatype,
+            working_dir=target_dir)
 
-    LOGGER.info(
-        f'fill nodata of {base_raster_path} to {backfill_raster_path}')
-    pygeoprocessing.raster_calculator(
-        [(base_raster_path, 1), (backfill_raster_path, 1),
-         (base_nodata, 'raw')], _fill_nodata_op, target_filled_raster_path,
-        base_raster_info['datatype'], base_nodata)
-    os.remove(kernel_raster_path)
-    os.remove(backfill_raster_path)
-    # os.remove(nan_scrubbed_raster_path)
+        LOGGER.info(
+            f'fill nodata of {base_raster_path} to {backfill_raster_path}')
+        pygeoprocessing.raster_calculator(
+            [(base_raster_path, 1), (backfill_raster_path, 1),
+             (base_nodata, 'raw')], _fill_nodata_op, target_filled_raster_path,
+            base_raster_info['datatype'], base_nodata)
+        os.remove(kernel_raster_path)
+        os.remove(backfill_raster_path)
+    except Exception:
+        LOGGER.exception(
+            f'error on fill by convolution {target_filled_raster_path}')
+        raise
 
 
 def _clip_raster(raster_path, bounding_box, target_clip_raster_path):
@@ -166,22 +165,26 @@ def _clip_raster(raster_path, bounding_box, target_clip_raster_path):
             box.
 
     """
-    raster_info = pygeoprocessing.get_raster_info(raster_path)
-    nan_scrub_raster_path = os.path.join(
-        os.path.dirname(target_clip_raster_path),
-        f'nan_scrub_{os.path.basename(raster_path)}')
-    if bounding_box[0] <= -180:
-        bounding_box[0] = -179.99
-    if bounding_box[2] >= 180:
-        bounding_box[2] = 179.99
+    try:
+        raster_info = pygeoprocessing.get_raster_info(raster_path)
+        nan_scrub_raster_path = os.path.join(
+            os.path.dirname(target_clip_raster_path),
+            f'nan_scrub_{os.path.basename(raster_path)}')
+        if bounding_box[0] <= -180:
+            bounding_box[0] = -179.99
+        if bounding_box[2] >= 180:
+            bounding_box[2] = 179.99
 
-    pygeoprocessing.warp_raster(
-        raster_path, raster_info['pixel_size'],
-        nan_scrub_raster_path, 'near', target_bb=bounding_box)
-    pygeoprocessing.raster_calculator(
-        [(nan_scrub_raster_path, 1), (raster_info['nodata'][0], 'raw')],
-        _scrub_nan, target_clip_raster_path, raster_info['datatype'],
-        raster_info['nodata'][0])
+        pygeoprocessing.warp_raster(
+            raster_path, raster_info['pixel_size'],
+            nan_scrub_raster_path, 'near', target_bb=bounding_box)
+        pygeoprocessing.raster_calculator(
+            [(nan_scrub_raster_path, 1), (raster_info['nodata'][0], 'raw')],
+            _scrub_nan, target_clip_raster_path, raster_info['datatype'],
+            raster_info['nodata'][0])
+    except Exception:
+        LOGGER.exception(f'error on clip {target_clip_raster_path}')
+        raise
 
 
 def clip_fill_scale(
@@ -318,6 +321,7 @@ def clip_fill_scale(
     except Exception:
         LOGGER.exception(
             f'error on clip fill scale {target_dir} {value_raster_path}')
+        raise
 
 
 def get_unique_raster_values(raster_path):
@@ -359,95 +363,99 @@ def scale_value(
     Return:
         None
     """
-    unique_class_vals = get_unique_raster_values(class_raster_path)
-    LOGGER.info(f'scaling {value_raster_path}')
+    try:
+        unique_class_vals = get_unique_raster_values(class_raster_path)
+        LOGGER.info(f'scaling {value_raster_path}')
 
-    # Align raster stack
-    working_dir = os.path.dirname(target_scaled_value_raster_path)
-    base_raster_path_list = [
-        value_raster_path, lulc_raster_path, scale_raster_path,
-        class_raster_path]
-    aligned_raster_path_list = [
-        os.path.join(working_dir, f'aligned_{os.path.basename(path)}')
-        for path in base_raster_path_list]
-    no_duplicates_raster_path_list = sorted(set(base_raster_path_list))
-    no_duplicates_aligned_raster_path_list = sorted(set(
-        aligned_raster_path_list))
-    lulc_info = pygeoprocessing.get_raster_info(lulc_raster_path)
-    LOGGER.info(f'align raster stack for {no_duplicates_raster_path_list}')
-    pygeoprocessing.align_and_resize_raster_stack(
-        no_duplicates_raster_path_list,
-        no_duplicates_aligned_raster_path_list,
-        ['near'] * len(no_duplicates_aligned_raster_path_list),
-        lulc_info['pixel_size'],
-        'intersection', vector_mask_options={
-            'mask_vector_path': mask_vector_path,
-            'mask_vector_where_filter': mask_vector_where_filter})
+        # Align raster stack
+        working_dir = os.path.dirname(target_scaled_value_raster_path)
+        base_raster_path_list = [
+            value_raster_path, lulc_raster_path, scale_raster_path,
+            class_raster_path]
+        aligned_raster_path_list = [
+            os.path.join(working_dir, f'aligned_{os.path.basename(path)}')
+            for path in base_raster_path_list]
+        no_duplicates_raster_path_list = sorted(set(base_raster_path_list))
+        no_duplicates_aligned_raster_path_list = sorted(set(
+            aligned_raster_path_list))
+        lulc_info = pygeoprocessing.get_raster_info(lulc_raster_path)
+        LOGGER.info(f'align raster stack for {no_duplicates_raster_path_list}')
+        pygeoprocessing.align_and_resize_raster_stack(
+            no_duplicates_raster_path_list,
+            no_duplicates_aligned_raster_path_list,
+            ['near'] * len(no_duplicates_aligned_raster_path_list),
+            lulc_info['pixel_size'],
+            'intersection', vector_mask_options={
+                'mask_vector_path': mask_vector_path,
+                'mask_vector_where_filter': mask_vector_where_filter})
 
-    # create output raster
-    target_nodata = -1
-    pygeoprocessing.new_raster_from_base(
-        aligned_raster_path_list[0], target_scaled_value_raster_path,
-        gdal.GDT_Float32, [target_nodata])
-    target_scaled_value_raster = gdal.OpenEx(
-        target_scaled_value_raster_path, gdal.OF_RASTER | gdal.GA_Update)
-    target_scaled_biomass_band = (
-        target_scaled_value_raster.GetRasterBand(1))
+        # create output raster
+        target_nodata = -1
+        pygeoprocessing.new_raster_from_base(
+            aligned_raster_path_list[0], target_scaled_value_raster_path,
+            gdal.GDT_Float32, [target_nodata])
+        target_scaled_value_raster = gdal.OpenEx(
+            target_scaled_value_raster_path, gdal.OF_RASTER | gdal.GA_Update)
+        target_scaled_biomass_band = (
+            target_scaled_value_raster.GetRasterBand(1))
 
-    # open these for fast reading
-    base_raster = gdal.OpenEx(aligned_raster_path_list[0], gdal.OF_RASTER)
-    base_band = base_raster.GetRasterBand(1)
-    lulc_raster = gdal.OpenEx(aligned_raster_path_list[1], gdal.OF_RASTER)
-    lulc_band = lulc_raster.GetRasterBand(1)
-    scale_raster = gdal.OpenEx(aligned_raster_path_list[2], gdal.OF_RASTER)
-    scale_band = scale_raster.GetRasterBand(1)
-    class_raster = gdal.OpenEx(aligned_raster_path_list[3], gdal.OF_RASTER)
-    class_band = class_raster.GetRasterBand(1)
+        # open these for fast reading
+        base_raster = gdal.OpenEx(aligned_raster_path_list[0], gdal.OF_RASTER)
+        base_band = base_raster.GetRasterBand(1)
+        lulc_raster = gdal.OpenEx(aligned_raster_path_list[1], gdal.OF_RASTER)
+        lulc_band = lulc_raster.GetRasterBand(1)
+        scale_raster = gdal.OpenEx(aligned_raster_path_list[2], gdal.OF_RASTER)
+        scale_band = scale_raster.GetRasterBand(1)
+        class_raster = gdal.OpenEx(aligned_raster_path_list[3], gdal.OF_RASTER)
+        class_band = class_raster.GetRasterBand(1)
 
-    LOGGER.info(
-        f'calculate the mean value per class for value '
-        f'{aligned_raster_path_list[2]} class {aligned_raster_path_list[3]}')
-    scale_sum = collections.defaultdict(float)
-    scale_count = collections.defaultdict(int)
-    for offset_dict in pygeoprocessing.iterblocks(
-            (aligned_raster_path_list[0], 1), offset_only=True):
-        scale_array = scale_band.ReadAsArray(**offset_dict)
-        class_array = class_band.ReadAsArray(**offset_dict)
-        lulc_array = lulc_band.ReadAsArray(**offset_dict).astype(numpy.int32)
-        lulc_mask = numpy.in1d(
-            lulc_array, valid_lulc_code_list).reshape(lulc_array.shape)
-        for class_val in unique_class_vals:
-            valid_class_mask = numpy.isclose(class_array, class_val)
-            valid_mask = valid_class_mask & lulc_mask
-            scale_count[class_val] += numpy.count_nonzero(valid_mask)
-            scale_sum[class_val] += numpy.sum(scale_array[valid_mask])
+        LOGGER.info(
+            f'calculate the mean value per class for value '
+            f'{aligned_raster_path_list[2]} class {aligned_raster_path_list[3]}')
+        scale_sum = collections.defaultdict(float)
+        scale_count = collections.defaultdict(int)
+        for offset_dict in pygeoprocessing.iterblocks(
+                (aligned_raster_path_list[0], 1), offset_only=True):
+            scale_array = scale_band.ReadAsArray(**offset_dict)
+            class_array = class_band.ReadAsArray(**offset_dict)
+            lulc_array = lulc_band.ReadAsArray(**offset_dict).astype(numpy.int32)
+            lulc_mask = numpy.in1d(
+                lulc_array, valid_lulc_code_list).reshape(lulc_array.shape)
+            for class_val in unique_class_vals:
+                valid_class_mask = numpy.isclose(class_array, class_val)
+                valid_mask = valid_class_mask & lulc_mask
+                scale_count[class_val] += numpy.count_nonzero(valid_mask)
+                scale_sum[class_val] += numpy.sum(scale_array[valid_mask])
 
-    # adjust the biomass value by the npp mean
-    LOGGER.info(
-        f'adjust value by mean for value '
-        f'{aligned_raster_path_list[0]} class {aligned_raster_path_list[3]}')
-    for offset_dict in pygeoprocessing.iterblocks(
-            (aligned_raster_path_list[0], 1), offset_only=True):
-        scale_array = scale_band.ReadAsArray(**offset_dict)
-        base_array = base_band.ReadAsArray(**offset_dict)
-        class_array = class_band.ReadAsArray(**offset_dict)
-        lulc_array = lulc_band.ReadAsArray(**offset_dict).astype(numpy.int32)
-        target_scaled_base_array = numpy.empty(scale_array.shape)
-        target_scaled_base_array[:] = target_nodata
-        lulc_mask = numpy.in1d(
-            lulc_array, valid_lulc_code_list).reshape(lulc_array.shape)
-        for class_val in unique_class_vals:
-            if scale_count[class_val] == 0:
-                continue
-            npp_mean = (
-                scale_sum[class_val] / scale_count[class_val])
-            valid_class_mask = numpy.isclose(class_array, class_val)
-            valid_mask = valid_class_mask & lulc_mask
-            target_scaled_base_array[valid_mask] = (
-                base_array[valid_mask] * scale_array[valid_mask] / npp_mean)
-        target_scaled_biomass_band.WriteArray(
-            target_scaled_base_array,
-            xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])
+        # adjust the biomass value by the npp mean
+        LOGGER.info(
+            f'adjust value by mean for value '
+            f'{aligned_raster_path_list[0]} class {aligned_raster_path_list[3]}')
+        for offset_dict in pygeoprocessing.iterblocks(
+                (aligned_raster_path_list[0], 1), offset_only=True):
+            scale_array = scale_band.ReadAsArray(**offset_dict)
+            base_array = base_band.ReadAsArray(**offset_dict)
+            class_array = class_band.ReadAsArray(**offset_dict)
+            lulc_array = lulc_band.ReadAsArray(**offset_dict).astype(numpy.int32)
+            target_scaled_base_array = numpy.empty(scale_array.shape)
+            target_scaled_base_array[:] = target_nodata
+            lulc_mask = numpy.in1d(
+                lulc_array, valid_lulc_code_list).reshape(lulc_array.shape)
+            for class_val in unique_class_vals:
+                if scale_count[class_val] == 0:
+                    continue
+                npp_mean = (
+                    scale_sum[class_val] / scale_count[class_val])
+                valid_class_mask = numpy.isclose(class_array, class_val)
+                valid_mask = valid_class_mask & lulc_mask
+                target_scaled_base_array[valid_mask] = (
+                    base_array[valid_mask] * scale_array[valid_mask] / npp_mean)
+            target_scaled_biomass_band.WriteArray(
+                target_scaled_base_array,
+                xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])
+    except Exception:
+        LOGGER.exception(f'error on scale {target_scaled_base_array}')
+        raise
 
 
 def stitch_worker(work_queue, target_global_raster_path):
@@ -527,6 +535,7 @@ def stitch_worker(work_queue, target_global_raster_path):
     except Exception:
         LOGGER.exception(
             f'exception on stitching {target_global_raster_path}')
+        raise
 
 
 def main():
@@ -626,6 +635,7 @@ def main():
 
     except Exception:
         LOGGER.exception('something bad happened in the the main scheduler')
+        raise
 
 
 def _work_callback(work_queue, scaled_raster_path):

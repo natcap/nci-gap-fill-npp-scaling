@@ -501,12 +501,12 @@ def stitch_worker(work_queue, target_global_raster_path):
                 win_xsize = offset_dict['win_xsize']
                 win_ysize = offset_dict['win_ysize']
                 if xoff+win_xsize > n_cols:
-                    LOGGER.debug(f'xoff+win_xsize > n_cols: {xoff}+{win_xsize} > {n_cols}')
+                    LOGGER.debug(f'xoff+win_xsize > n_cols: {xoff}+{win_xsize} > {n_cols} {target_global_raster_path}')
                     win_xsize += n_cols - (xoff+win_xsize)
                     LOGGER.debug(f'new win_xsize {win_xsize}')
 
                 if yoff+win_ysize > n_rows:
-                    LOGGER.debug(f'yoff+win_ysize > n_rows: {yoff}+{win_ysize} > {n_rows}')
+                    LOGGER.debug(f'yoff+win_ysize > n_rows: {yoff}+{win_ysize} > {n_rows} {target_global_raster_path}')
                     win_ysize += n_rows - (yoff+win_ysize)
                     LOGGER.debug(f'new win_ysize {win_ysize}')
                 # change the size of the array if needed
@@ -514,7 +514,6 @@ def stitch_worker(work_queue, target_global_raster_path):
                 global_array = global_band.ReadAsArray(
                     xoff=xoff, yoff=yoff,
                     win_xsize=win_xsize, win_ysize=win_ysize)
-                LOGGER.debug(f'base_array.shape global_array.shape {base_array.shape} {global_array.shape}')
                 base_array[numpy.isclose(base_array, base_nodata)] = global_nodata
                 valid_mask = numpy.isclose(global_array, global_nodata)
                 global_array[valid_mask] = base_array[valid_mask]

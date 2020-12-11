@@ -32,8 +32,8 @@ logging.basicConfig(
         '%(asctime)s (%(relativeCreated)d) %(processName)s %(levelname)s '
         '%(name)s [%(funcName)s:%(lineno)d] %(message)s'))
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.DEBUG)
-logging.getLogger('pygeoprocessing').setLevel(logging.WARN)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('pygeoprocessing').setLevel(logging.DEBUG)
 
 ECOSHARD_ROOT = (
     'https://storage.googleapis.com/ecoshard-root/nci-gap-fill-npp-scaling/'
@@ -511,7 +511,6 @@ def stitch_worker(work_queue, target_global_raster_path):
                     LOGGER.debug(f'new win_ysize {win_ysize}')
                 # change the size of the array if needed
                 base_array = base_array[0:win_ysize, 0:win_xsize]
-                LOGGER.debug(f'stitching {target_global_raster_path} {xoff} {yoff} {win_xsize} {win_ysize}')
                 global_array = global_band.ReadAsArray(
                     xoff=xoff, yoff=yoff,
                     win_xsize=win_xsize, win_ysize=win_ysize)
@@ -523,7 +522,9 @@ def stitch_worker(work_queue, target_global_raster_path):
                 global_band.WriteArray(
                     global_array, xoff=xoff, yoff=yoff)
 
+            LOGGER.debug(f'flush cache {payload}')
             global_band.FlushCache()
+            LOGGER.debug(f'done stitching {payload}')
 
         global_band = None
         global_raster = None

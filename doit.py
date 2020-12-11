@@ -465,6 +465,7 @@ def stitch_worker(work_queue, target_global_raster_path):
                 LOGGER.info(
                     f'work queue empty on {target_global_raster_path}, '
                     'waiting for more')
+                continue
             LOGGER.debug(f'stitching: got payload {payload}')
             if payload == 'STOP':
                 LOGGER.debug(

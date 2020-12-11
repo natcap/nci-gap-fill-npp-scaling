@@ -545,7 +545,7 @@ def main():
 
         country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
         country_layer = country_vector.GetLayer()
-        # try just on costa ricas
+
         manager = multiprocessing.Manager()
         worker_queue_list = []
         for (scenario_id, value_raster_path, class_raster_path,
@@ -581,8 +581,10 @@ def main():
             # create global stitch raster
             for country_feature in country_layer:
                 country_iso = country_feature.GetField('ISO3')
-                if country_iso is None:
+                # skip Antarctica and anything so small it's not named
+                if country_iso in [None, 'ATA']:
                     continue
+
                 LOGGER.info(f'processing {country_iso}')
                 country_workspace = os.path.join(
                     COUNTRY_WORKSPACE_DIR, f'{country_iso}_{scenario_id}')

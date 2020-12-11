@@ -605,12 +605,19 @@ def main():
                     task_name=(f'''stitch callback {
                         scaled_raster_path} into {global_stitch_raster_path}'''))
 
-        task_graph.join()
-        task_graph.close()
-
+        LOGGER.info(
+            'done scheduling, now waiting for stitch workers to stop')
         for stitch_worker_process, work_queue in worker_queue_list:
             work_queue.put('STOP')
+            LOGGER.info(
+                f'stopping stitch work queue {work_queue}')
             stitch_worker_process.join()
+        LOGGER.info('all stitch workers joined')
+
+        LOGGER.info(
+            'done with everything, waiting for task graph to join')
+        task_graph.join()
+        task_graph.close()
     except Exception:
         LOGGER.exception('something bad happened in the the main scheduler')
 

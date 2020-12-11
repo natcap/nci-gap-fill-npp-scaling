@@ -24,7 +24,7 @@ import taskgraph
 
 gdal.SetCacheMax(2**26)
 
-N_CPUS = multiprocessing.cpu_count()
+N_CPUS = multiprocessing.cpu_count()//2
 
 logging.basicConfig(
     level=logging.DEBUG,

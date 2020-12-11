@@ -211,7 +211,7 @@ def clip_fill_scale(
         mask_vector_path (str): path to a vector used to mask raster stack.
         mask_vector_where_filter (str): where filter to indicate which
             feature to filter by.
-        target_dir (str): desired path to place clipped rasters from
+        f (str): desired path to place clipped rasters from
             ``raster_path_list``, they will have the same basename.
         task_graph (TaskGraph): taskgraph object that can be used for
             scheduling.
@@ -219,101 +219,105 @@ def clip_fill_scale(
     Return:
         (scaled_raster_path, task for that raster)
     """
-    task_path_map = dict()
-    mask_vector = gdal.OpenEx(mask_vector_path, gdal.OF_VECTOR)
-    mask_layer = mask_vector.GetLayer()
-    mask_layer.SetAttributeFilter(mask_vector_where_filter)
-    mask_feature = next(iter(mask_layer))
-    mask_geom = mask_feature.GetGeometryRef()
-    envelope = mask_geom.GetEnvelope()
-    # swizzle so we get xmin, ymin, xmax, ymax order
-    bounding_box = [envelope[i] for i in [0, 2, 1, 3]]
+    try:
+        task_path_map = dict()
+        mask_vector = gdal.OpenEx(mask_vector_path, gdal.OF_VECTOR)
+        mask_layer = mask_vector.GetLayer()
+        mask_layer.SetAttributeFilter(mask_vector_where_filter)
+        mask_feature = next(iter(mask_layer))
+        mask_geom = mask_feature.GetGeometryRef()
+        envelope = mask_geom.GetEnvelope()
+        # swizzle so we get xmin, ymin, xmax, ymax order
+        bounding_box = [envelope[i] for i in [0, 2, 1, 3]]
 
-    for raster_id, raster_path in [
-            ('value', value_raster_path),
-            ('scale', scale_raster_path),
-            ('class', class_raster_path)]:
-        # this can happen because biomass uses value as its class, skip it
-        if raster_id == 'class' and class_raster_path == value_raster_path:
-            task_path_map['class'] = task_path_map['value']
-            continue
-        clip_raster_path = os.path.join(
-            target_dir, f'clip_{os.path.basename(raster_path)}')
-        clip_task = task_graph.add_task(
-            func=_clip_raster,
-            args=(raster_path, bounding_box, clip_raster_path),
-            target_path_list=[clip_raster_path],
-            task_name=f'clip {raster_path} to {clip_raster_path}')
+        for raster_id, raster_path in [
+                ('value', value_raster_path),
+                ('scale', scale_raster_path),
+                ('class', class_raster_path)]:
+            # this can happen because biomass uses value as its class, skip it
+            if raster_id == 'class' and class_raster_path == value_raster_path:
+                task_path_map['class'] = task_path_map['value']
+                continue
+            clip_raster_path = os.path.join(
+                target_dir, f'clip_{os.path.basename(raster_path)}')
+            clip_task = task_graph.add_task(
+                func=_clip_raster,
+                args=(raster_path, bounding_box, clip_raster_path),
+                target_path_list=[clip_raster_path],
+                task_name=f'clip {raster_path} to {clip_raster_path}')
 
-        fill_raster_path = os.path.join(
-            target_dir, f'fill_{os.path.basename(raster_path)}')
-        fill_task = task_graph.add_task(
+            fill_raster_path = os.path.join(
+                target_dir, f'fill_{os.path.basename(raster_path)}')
+            fill_task = task_graph.add_task(
+                func=fill_by_convolution,
+                args=(
+                    clip_raster_path, MAX_FILL_DIST_DEGREES,
+                    fill_raster_path),
+                target_path_list=[fill_raster_path],
+                dependent_task_list=[clip_task],
+                task_name=f'clip and fill {raster_path} to {fill_raster_path}')
+            task_path_map[raster_id] = {
+                'task': fill_task,
+                'path': fill_raster_path}
+
+        # the biomass zones are uniquely identified by their unique floating
+        # point values. Jeff said this was okay.
+        no_fill_scale_raster_path = os.path.join(
+            target_dir, f'''no_fill_scale_{os.path.basename(
+                task_path_map['value']['path'])}''')
+        scale_task = task_graph.add_task(
+            func=scale_value,
+            args=(
+                task_path_map['value']['path'],
+                task_path_map['scale']['path'],
+                task_path_map['class']['path'],
+                lulc_raster_path,
+                valid_lulc_code_list,
+                mask_vector_path, mask_vector_where_filter,
+                no_fill_scale_raster_path),
+            target_path_list=[no_fill_scale_raster_path],
+            dependent_task_list=[
+                task_path_map[raster_id]['task']
+                for raster_id in ['value', 'scale', 'class']],
+            task_name=(
+                f"scale {task_path_map['value']['path']} to "
+                f"{no_fill_scale_raster_path}"))
+
+        # fill the scale
+        no_mask_fill_scale_raster_path = os.path.join(
+            target_dir, f'no_mask_fill_scale_{os.path.basename(raster_path)}')
+        fill_scale_task = task_graph.add_task(
             func=fill_by_convolution,
             args=(
-                clip_raster_path, MAX_FILL_DIST_DEGREES,
-                fill_raster_path),
-            target_path_list=[fill_raster_path],
-            dependent_task_list=[clip_task],
+                no_fill_scale_raster_path, MAX_FILL_DIST_DEGREES,
+                no_mask_fill_scale_raster_path),
+            target_path_list=[no_mask_fill_scale_raster_path],
+            dependent_task_list=[scale_task],
             task_name=f'clip and fill {raster_path} to {fill_raster_path}')
+
+        # mask the result to the feature
+        scaled_value_raster_path = os.path.join(
+            target_dir,
+            f"scaled_{os.path.basename(task_path_map['value']['path'])}")
+        mask_scale_task = task_graph.add_task(
+            func=pygeoprocessing.mask_raster,
+            args=(
+                (no_mask_fill_scale_raster_path, 1), mask_vector_path,
+                scaled_value_raster_path),
+            kwargs={'where_clause': mask_vector_where_filter},
+            dependent_task_list=[fill_scale_task],
+            target_path_list=[scaled_value_raster_path],
+            task_name=f'mask final result of {scaled_value_raster_path}')
+
+        # clip and mask by convolution
         task_path_map[raster_id] = {
-            'task': fill_task,
-            'path': fill_raster_path}
+            'task': mask_scale_task,
+            'path': scaled_value_raster_path}
 
-    # the biomass zones are uniquely identified by their unique floating
-    # point values. Jeff said this was okay.
-    no_fill_scale_raster_path = os.path.join(
-        target_dir, f'''no_fill_scale_{os.path.basename(
-            task_path_map['value']['path'])}''')
-    scale_task = task_graph.add_task(
-        func=scale_value,
-        args=(
-            task_path_map['value']['path'],
-            task_path_map['scale']['path'],
-            task_path_map['class']['path'],
-            lulc_raster_path,
-            valid_lulc_code_list,
-            mask_vector_path, mask_vector_where_filter,
-            no_fill_scale_raster_path),
-        target_path_list=[no_fill_scale_raster_path],
-        dependent_task_list=[
-            task_path_map[raster_id]['task']
-            for raster_id in ['value', 'scale', 'class']],
-        task_name=(
-            f"scale {task_path_map['value']['path']} to "
-            f"{no_fill_scale_raster_path}"))
-
-    # fill the scale
-    no_mask_fill_scale_raster_path = os.path.join(
-        target_dir, f'no_mask_fill_scale_{os.path.basename(raster_path)}')
-    fill_scale_task = task_graph.add_task(
-        func=fill_by_convolution,
-        args=(
-            no_fill_scale_raster_path, MAX_FILL_DIST_DEGREES,
-            no_mask_fill_scale_raster_path),
-        target_path_list=[no_mask_fill_scale_raster_path],
-        dependent_task_list=[scale_task],
-        task_name=f'clip and fill {raster_path} to {fill_raster_path}')
-
-    # mask the result to the feature
-    scaled_value_raster_path = os.path.join(
-        target_dir,
-        f"scaled_{os.path.basename(task_path_map['value']['path'])}")
-    mask_scale_task = task_graph.add_task(
-        func=pygeoprocessing.mask_raster,
-        args=(
-            (no_mask_fill_scale_raster_path, 1), mask_vector_path,
-            scaled_value_raster_path),
-        kwargs={'where_clause': mask_vector_where_filter},
-        dependent_task_list=[fill_scale_task],
-        target_path_list=[scaled_value_raster_path],
-        task_name=f'mask final result of {scaled_value_raster_path}')
-
-    # clip and mask by convolution
-    task_path_map[raster_id] = {
-        'task': mask_scale_task,
-        'path': scaled_value_raster_path}
-
-    return (scaled_value_raster_path, mask_scale_task)
+        return (scaled_value_raster_path, mask_scale_task)
+    except Exception:
+        LOGGER.exception(
+            f'error on clip fill scale {target_dir} {value_raster_path}')
 
 
 def get_unique_raster_values(raster_path):

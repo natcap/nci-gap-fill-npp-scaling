@@ -546,7 +546,7 @@ def main():
                 os.makedirs(dir_path)
             except OSError:
                 pass
-        task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, N_CPUS)
+        task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, N_CPUS, 60)
         token_path = os.path.join(DATA_DIR, 'download.token')
         fetch_task = task_graph.add_task(
             func=ecoshard.download_and_unzip,

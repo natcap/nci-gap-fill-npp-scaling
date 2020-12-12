@@ -449,9 +449,11 @@ def scale_value(
                 npp_mean = (
                     scale_sum[class_val] / scale_count[class_val])
                 valid_class_mask = numpy.isclose(class_array, class_val)
-                valid_mask = valid_class_mask & lulc_mask
+                valid_mask = valid_class_mask & lulc_mask & numpy.isfinite(
+                    scale_array)
                 target_scaled_base_array[valid_mask] = (
-                    base_array[valid_mask] * scale_array[valid_mask] / npp_mean)
+                    base_array[valid_mask] * scale_array[valid_mask] /
+                    npp_mean)
             target_scaled_biomass_band.WriteArray(
                 target_scaled_base_array,
                 xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])
@@ -567,8 +569,8 @@ def main():
              valid_lulc_code_list) in [
                 ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
                  ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-                ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
-                 PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                # ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
+                #  PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
                 ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
                  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
                 ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,

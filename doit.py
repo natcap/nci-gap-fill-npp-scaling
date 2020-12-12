@@ -451,7 +451,7 @@ def scale_value(
                 npp_mean = (
                     scale_sum[class_val] / scale_count[class_val])
                 if numpy.isclose(npp_mean, 0.0):
-                    npp_mean = 0.0
+                    npp_mean = 1.0
                 valid_class_mask = numpy.isclose(class_array, class_val)
                 valid_mask = valid_class_mask & lulc_mask & numpy.isfinite(
                     scale_array)

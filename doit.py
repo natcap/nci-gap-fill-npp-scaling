@@ -15,6 +15,8 @@ import multiprocessing
 import os
 import queue
 import sys
+import warnings
+warnings.filterwarnings('error')
 
 from osgeo import gdal
 import ecoshard
@@ -451,9 +453,17 @@ def scale_value(
                 valid_class_mask = numpy.isclose(class_array, class_val)
                 valid_mask = valid_class_mask & lulc_mask & numpy.isfinite(
                     scale_array)
-                target_scaled_base_array[valid_mask] = (
-                    base_array[valid_mask] * scale_array[valid_mask] /
-                    npp_mean)
+                try:
+                    target_scaled_base_array[valid_mask] = (
+                        base_array[valid_mask] * scale_array[valid_mask] /
+                        npp_mean)
+                except:
+                    LOGGER.exception(
+                        f'invalid value in divide: {npp_mean}\n'
+                        f'scale_sum[class_val]: {scale_sum[class_val]}\n'
+                        f'scale_array[valid_mask]: {scale_array[valid_mask]}\n'
+                        f'on this raster: {target_scaled_value_raster_path}')
+                    raise
             target_scaled_biomass_band.WriteArray(
                 target_scaled_base_array,
                 xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])

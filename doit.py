@@ -14,6 +14,7 @@ import logging
 import multiprocessing
 import os
 import queue
+import sys
 
 from osgeo import gdal
 import ecoshard
@@ -28,6 +29,7 @@ N_CPUS = multiprocessing.cpu_count()
 
 logging.basicConfig(
     level=logging.DEBUG,
+    filename='log.txt',
     format=(
         '%(asctime)s (%(relativeCreated)d) %(processName)s %(levelname)s '
         '%(name)s [%(funcName)s:%(lineno)d] %(message)s'))

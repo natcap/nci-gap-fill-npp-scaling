@@ -14,7 +14,7 @@ import logging
 import multiprocessing
 import os
 import queue
-import sys
+import signal
 import warnings
 warnings.filterwarnings('error')
 
@@ -27,7 +27,18 @@ import taskgraph
 
 gdal.SetCacheMax(2**26)
 
-N_CPUS = -1 # multiprocessing.cpu_count()
+N_CPUS = multiprocessing.cpu_count()
+
+
+def signal_catcher(info_string):
+    for signal_type in [
+            signal.SIGSEGV, signal.SIGBUS, signal.SIGCHLD, signal.SIGFPE,
+            signal.SIGHUP, signal.SIGILL, signal.SIGINT, signal.SIGKILL,
+            signal.SIGPIPE, signal.SIGTERM]:
+        def sig_handler(signum, frame):
+            print(f"*** {info_string} signal caught: {signal_type} ")
+        signal.signal(signal_type, sig_handler)
+
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -377,6 +388,9 @@ def scale_value(
         None
     """
     try:
+        signal_catcher(
+            f"signal catcher in scale_value: "
+            f"{target_scaled_value_raster_path}")
         unique_class_vals = get_unique_raster_values(class_raster_path)
         LOGGER.info(f'scaling {value_raster_path}')
 
@@ -486,6 +500,8 @@ def scale_value(
 def stitch_worker(work_queue, target_global_raster_path):
     """Stitch base, a smaller raster, into target, a global one."""
     try:
+        signal_catcher(
+            f'stitch signal {work_queue} {target_global_raster_path}')
         LOGGER.info(f'starting up stitching for {target_global_raster_path}')
         global_raster = gdal.OpenEx(
             target_global_raster_path, gdal.OF_RASTER | gdal.GA_Update)
@@ -566,6 +582,7 @@ def stitch_worker(work_queue, target_global_raster_path):
 def main():
     """Entry point."""
     try:
+        signal_catcher(f"signal catcher for MAIN")
         for dir_path in [WORKSPACE_DIR, DATA_DIR, COUNTRY_WORKSPACE_DIR]:
             try:
                 os.makedirs(dir_path)

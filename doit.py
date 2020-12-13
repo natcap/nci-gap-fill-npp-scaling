@@ -87,7 +87,7 @@ def _fill_nodata_op(base, fill, nodata):
     non_nodata_mask = ~numpy.isclose(result, nodata)
     # zero out any negative values, this was to fix an issue where I was
     # getting negative values on methane rasters.
-    result[non_nodata_mask & result < 0.0] = 0.0
+    result[non_nodata_mask & (result < 0.0)] = 0.0
     return result
 
 

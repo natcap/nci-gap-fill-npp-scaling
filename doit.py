@@ -31,13 +31,16 @@ N_CPUS = multiprocessing.cpu_count()
 
 
 def signal_catcher(info_string):
-    for signal_type in [
+    for index, signal_type in enumerate([
             signal.SIGSEGV, signal.SIGBUS, signal.SIGCHLD, signal.SIGFPE,
             signal.SIGHUP, signal.SIGILL, signal.SIGINT, signal.SIGKILL,
-            signal.SIGPIPE, signal.SIGTERM]:
-        def sig_handler(signum, frame):
-            print(f"*** {info_string} signal caught: {signal_type} ")
-        signal.signal(signal_type, sig_handler)
+            signal.SIGPIPE, signal.SIGTERM]):
+        try:
+            def sig_handler(signum, frame):
+                print(f"*** {info_string} signal caught: {signal_type} ")
+            signal.signal(signal_type, sig_handler)
+        except:
+            LOGGER.exception(f'bad signal {index}')
 
 
 logging.basicConfig(

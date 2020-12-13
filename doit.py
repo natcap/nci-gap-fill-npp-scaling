@@ -78,11 +78,16 @@ GRAZING_VALID_LULC_LIST = [
     30, 40, 100, 110, 120, 121, 122, 130, 140, 150, 152, 153, 180, 200, 201,
     202, 203]
 
+
 def _fill_nodata_op(base, fill, nodata):
     result = numpy.copy(base)
     if nodata is not None:
         nodata_mask = numpy.isclose(base, nodata)
         result[nodata_mask] = fill[nodata_mask]
+    non_nodata_mask = ~numpy.isclose(result, nodata)
+    # zero out any negative values, this was to fix an issue where I was
+    # getting negative values on methane rasters.
+    result[non_nodata_mask & result < 0.0] = 0.0
     return result
 
 
@@ -151,6 +156,7 @@ def fill_by_convolution(
             [(base_raster_path, 1), (backfill_raster_path, 1),
              (base_nodata, 'raw')], _fill_nodata_op, target_filled_raster_path,
             base_raster_info['datatype'], base_nodata)
+
         os.remove(kernel_raster_path)
         os.remove(backfill_raster_path)
     except Exception:
@@ -579,18 +585,18 @@ def main():
         worker_queue_list = []
         for (scenario_id, value_raster_path, class_raster_path,
              valid_lulc_code_list) in [
-                # ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
-                #  ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-                ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
-                 PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-                # ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
+                 ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                # ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
+                # PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
                 ]:
             global_stitch_raster_path = os.path.join(
                 WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')

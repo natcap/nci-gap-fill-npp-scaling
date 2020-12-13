@@ -27,7 +27,7 @@ import taskgraph
 
 gdal.SetCacheMax(2**26)
 
-N_CPUS = multiprocessing.cpu_count()
+N_CPUS = -1 # multiprocessing.cpu_count()
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -613,7 +613,7 @@ def main():
             stitch_worker_process = multiprocessing.Process(
                 target=stitch_worker,
                 args=(work_queue, global_stitch_raster_path))
-            stitch_worker_process.start()
+            #stitch_worker_process.start()
             worker_queue_list.append((stitch_worker_process, work_queue))
 
             # create global stitch raster
@@ -655,9 +655,10 @@ def main():
             LOGGER.info(
                 f'sending stop to stitch work queue {work_queue}')
             work_queue.put('STOP')
-        for stitch_worker_process, work_queue in worker_queue_list:
-            LOGGER.info(f'joining process  {stitch_worker_process}')
-            stitch_worker_process.join()
+        # TODO: removed for debugging
+        # for stitch_worker_process, work_queue in worker_queue_list:
+        #     LOGGER.info(f'joining process  {stitch_worker_process}')
+        #     stitch_worker_process.join()
         LOGGER.info('all stitch workers joined')
 
     except Exception:

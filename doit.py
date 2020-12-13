@@ -38,7 +38,7 @@ def signal_catcher(info_string):
             signal.SIGPIPE, signal.SIGTERM]):
         try:
             def sig_handler(signum, frame):
-                print(f"*** {info_string} signal caught: {signal_type} ")
+                print(f"*** {info_string} signal index caught: {index} ")
                 sys.exit(-1)
             signal.signal(signal_type, sig_handler)
         except:

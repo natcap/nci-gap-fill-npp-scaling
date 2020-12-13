@@ -84,7 +84,9 @@ def _fill_nodata_op(base, fill, nodata):
     if nodata is not None:
         nodata_mask = numpy.isclose(base, nodata)
         result[nodata_mask] = fill[nodata_mask]
-    non_nodata_mask = ~numpy.isclose(result, nodata)
+        non_nodata_mask = ~numpy.isclose(result, nodata)
+    else:
+        non_nodata_mask = numpy.ones(result.shape, dtype=numpy.bool)
     # zero out any negative values, this was to fix an issue where I was
     # getting negative values on methane rasters.
     result[non_nodata_mask & (result < 0.0)] = 0.0

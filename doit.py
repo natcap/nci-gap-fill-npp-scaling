@@ -38,6 +38,7 @@ def signal_catcher(info_string):
         try:
             def sig_handler(signum, frame):
                 print(f"*** {info_string} signal caught: {signal_type} ")
+                sys.exit(-1)
             signal.signal(signal_type, sig_handler)
         except:
             LOGGER.exception(f'bad signal {index}')

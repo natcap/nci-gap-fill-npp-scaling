@@ -342,7 +342,8 @@ def get_unique_raster_values(raster_path):
     nodata = pygeoprocessing.get_raster_info(raster_path)['nodata'][0]
     for _, array in pygeoprocessing.iterblocks((raster_path, 1)):
         unique_vals |= set(array[~numpy.isclose(array, nodata)])
-    return unique_vals
+    clean_unique_vals = [x for x in unique_vals if numpy.isfinite(x)]
+    return clean_unique_vals
 
 
 def scale_value(

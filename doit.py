@@ -652,9 +652,11 @@ def main():
         LOGGER.info(
             'done scheduling, now waiting for stitch workers to stop')
         for stitch_worker_process, work_queue in worker_queue_list:
-            work_queue.put('STOP')
             LOGGER.info(
-                f'stopping stitch work queue {work_queue}')
+                f'sending stop to stitch work queue {work_queue}')
+            work_queue.put('STOP')
+        for stitch_worker_process, work_queue in worker_queue_list:
+            LOGGER.info(f'joining process  {stitch_worker_process}')
             stitch_worker_process.join()
         LOGGER.info('all stitch workers joined')
 

@@ -616,16 +616,16 @@ def main():
         worker_queue_list = []
         for (scenario_id, value_raster_path, class_raster_path,
              valid_lulc_code_list) in [
-                # ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
-                #  ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-                # ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('annual_biomass', ANNUAL_BIOMASS_RASTER_PATH,
+                 ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
+                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
                 ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
                  PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
                 ]:
@@ -641,7 +641,7 @@ def main():
             stitch_worker_process = multiprocessing.Process(
                 target=stitch_worker,
                 args=(work_queue, global_stitch_raster_path))
-            #stitch_worker_process.start()
+            stitch_worker_process.start()
             worker_queue_list.append((stitch_worker_process, work_queue))
 
             # create global stitch raster
@@ -683,10 +683,9 @@ def main():
             LOGGER.info(
                 f'sending stop to stitch work queue {work_queue}')
             work_queue.put('STOP')
-        # TODO: removed for debugging
-        # for stitch_worker_process, work_queue in worker_queue_list:
-        #     LOGGER.info(f'joining process  {stitch_worker_process}')
-        #     stitch_worker_process.join()
+        for stitch_worker_process, work_queue in worker_queue_list:
+            LOGGER.info(f'joining process  {stitch_worker_process}')
+            stitch_worker_process.join()
         LOGGER.info('all stitch workers joined')
 
     except Exception:

@@ -205,7 +205,8 @@ def _clip_raster(raster_path, bounding_box, target_clip_raster_path):
 
         pygeoprocessing.warp_raster(
             raster_path, raster_info['pixel_size'],
-            nan_scrub_raster_path, 'near', target_bb=bounding_box)
+            nan_scrub_raster_path, 'near', target_bb=bounding_box,
+            gdal_warp_options=['warpMemoryLimit=2e20'])
         pygeoprocessing.raster_calculator(
             [(nan_scrub_raster_path, 1), (raster_info['nodata'][0], 'raw')],
             _scrub_nan, target_clip_raster_path, raster_info['datatype'],
@@ -296,6 +297,7 @@ def clip_fill_scale(
         no_fill_scale_raster_path = os.path.join(
             target_dir, f'''no_fill_scale_{os.path.basename(
                 task_path_map['value']['path'])}''')
+
         scale_task = task_graph.add_task(
             func=scale_value,
             args=(
@@ -419,7 +421,8 @@ def scale_value(
             lulc_info['pixel_size'],
             'intersection', vector_mask_options={
                 'mask_vector_path': mask_vector_path,
-                'mask_vector_where_filter': mask_vector_where_filter})
+                'mask_vector_where_filter': mask_vector_where_filter},
+            gdal_warp_options=['warpMemoryLimit=2e20'])
 
         # create output raster
         target_nodata = -1
@@ -497,6 +500,9 @@ def scale_value(
             target_scaled_biomass_band.WriteArray(
                 target_scaled_base_array,
                 xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])
+        target_scaled_biomass_band.FlushCache()
+        target_scaled_biomass_band = None
+        target_scaled_value_raster = None
     except Exception:
         LOGGER.exception(f'error on scale {target_scaled_base_array}')
         raise

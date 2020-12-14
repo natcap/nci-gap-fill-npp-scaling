@@ -33,9 +33,14 @@ N_CPUS = multiprocessing.cpu_count()
 
 def signal_catcher(info_string):
     for index, signal_type in enumerate([
-            signal.SIGSEGV, signal.SIGBUS, signal.SIGCHLD, signal.SIGFPE,
-            signal.SIGHUP, signal.SIGILL, signal.SIGINT,
-            signal.SIGPIPE]):
+            signal.SIGSEGV,
+            signal.SIGBUS,
+            signal.SIGCHLD,
+            signal.SIGFPE,
+            signal.SIGHUP,
+            signal.SIGILL,
+            signal.SIGINT,
+            ]):
         try:
             def sig_handler(signum, frame):
                 print(f"*** {info_string} signal index caught: {index} ")

@@ -35,7 +35,7 @@ def signal_catcher(info_string):
     for index, signal_type in enumerate([
             signal.SIGSEGV, signal.SIGBUS, signal.SIGCHLD, signal.SIGFPE,
             signal.SIGHUP, signal.SIGILL, signal.SIGINT,
-            signal.SIGPIPE, signal.SIGTERM]):
+            signal.SIGPIPE]):
         try:
             def sig_handler(signum, frame):
                 print(f"*** {info_string} signal index caught: {index} ")

@@ -403,7 +403,9 @@ def scale_value(
             f"signal catcher in scale_value: "
             f"{target_scaled_value_raster_path}")
         unique_class_vals = get_unique_raster_values(class_raster_path)
-        LOGGER.info(f'scaling {value_raster_path}')
+        LOGGER.info(
+            f'scaling {value_raster_path}\n'
+            f'unique class vals: {unique_class_vals}')
 
         # Align raster stack
         working_dir = os.path.dirname(target_scaled_value_raster_path)

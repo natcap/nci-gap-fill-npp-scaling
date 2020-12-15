@@ -737,7 +737,7 @@ def _map_op(base_array, class_values):
 def create_class_raster(base_raster_path, target_class_raster_path):
     """Create an integer class raster from base."""
     unique_values = get_unique_raster_values(base_raster_path)
-    LOGGER.debug(f'there are {unique_values.size} unique values: {unique_values}')
+    LOGGER.debug(f'there are {len(unique_values)} unique values: {unique_values}')
     pygeoprocessing.raster_calculator(
         [(base_raster_path, 1), (unique_values, 'raw')], _map_op,
         target_class_raster_path, gdal.GDT_Byte, None)

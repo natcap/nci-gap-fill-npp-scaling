@@ -16,7 +16,7 @@ import os
 import queue
 import signal
 import warnings
-import thread
+import threading
 warnings.filterwarnings('error')
 
 from osgeo import gdal

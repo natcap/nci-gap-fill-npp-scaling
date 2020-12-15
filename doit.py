@@ -17,6 +17,7 @@ import queue
 import signal
 import warnings
 import threading
+import time
 warnings.filterwarnings('error')
 
 from osgeo import gdal
@@ -365,7 +366,14 @@ def get_unique_raster_values(raster_path):
     """Return list of unique raster values in ``raster_path``."""
     unique_vals = set()
     nodata = pygeoprocessing.get_raster_info(raster_path)['nodata'][0]
-    for _, array in pygeoprocessing.iterblocks((raster_path, 1)):
+    last_time = time.time()
+    for index, (_, array) in enumerate(
+            pygeoprocessing.iterblocks((raster_path, 1))):
+        if time.time()-last_time > 5.0:
+            last_time = time.time()
+            LOGGER.debug(
+                f'unique raster values on block {index} there are '
+                f'{len(unique_vals)} unique vals so far')
         unique_vals |= set(array[~numpy.isclose(array, nodata)])
     clean_unique_vals = [x for x in unique_vals if numpy.isfinite(x)]
     return clean_unique_vals

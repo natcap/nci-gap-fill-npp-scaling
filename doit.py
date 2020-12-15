@@ -624,14 +624,14 @@ def main():
                 #  ANNUAL_BIOMASS_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
                 # ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
                 #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-                 GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
+                # ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
+                #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
                 # ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
                 #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
                 # ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
                 #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
-                # ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
-                #  PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
+                 PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
                 ]:
             global_stitch_raster_path = os.path.join(
                 WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')

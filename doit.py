@@ -81,6 +81,9 @@ ANNUAL_BIOMASS_RASTER_PATH = os.path.join(
 PLT_AN_BIO_PROJ_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'timberLayers', 'plt_an_bio_proj.tif')
 
+PLT_AN_BIO_PROJ_CLASS_RASTER_PATH = os.path.join(
+    WORKSPACE_DIR, 'derived_data', 'class_plt_an_bio_proj.tif')
+
 
 CURRENT_MEAT_PROD_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'grazingLayers', 'current_grass_meat.tif')
@@ -618,6 +621,15 @@ def main():
         country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
         country_layer = country_vector.GetLayer()
 
+        plt_ann_bio_class_task = task_graph.add_task(
+            func=create_class_raster,
+            args=(
+                PLT_AN_BIO_PROJ_RASTER_PATH,
+                PLT_AN_BIO_PROJ_CLASS_RASTER_PATH),
+            target_path_list=[PLT_AN_BIO_PROJ_CLASS_RASTER_PATH],
+            task_name='create class raster for PLT_AN_BIO')
+        plt_ann_bio_class_task.join()
+
         manager = multiprocessing.Manager()
         worker_queue_list = []
         for (scenario_id, value_raster_path, class_raster_path,
@@ -633,7 +645,8 @@ def main():
                 # ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
                 #  GRAZING_ZONE_RASTER_PATH, GRAZING_VALID_LULC_LIST,),
                 ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
-                 PLT_AN_BIO_PROJ_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
+                 PLT_AN_BIO_PROJ_CLASS_RASTER_PATH,
+                 FORESTRY_VALID_LULC_LIST,),
                 ]:
             global_stitch_raster_path = os.path.join(
                 WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')
@@ -702,6 +715,22 @@ def main():
 def _work_callback(work_queue, scaled_raster_path):
     """Pass raster to work queue callback."""
     work_queue.put(scaled_raster_path)
+
+
+def _map_op(base_array, class_values):
+    """Map base array to index of class values."""
+    result = numpy.zeros(base_array.shape, dtype=numpy.uint8)
+    for index, class_value in enumerate(class_values):
+        result[numpy.isclose(base_array, class_value)] = index
+    return result
+
+
+def create_class_raster(base_raster_path, target_class_raster_path):
+    """Create an integer class raster from base."""
+    unique_values = get_unique_raster_values(base_raster_path)
+    pygeoprocessing.raster_calculator(
+        [(base_raster_path, 1), (unique_values, 'raw')], _map_op,
+        target_class_raster_path, gdal.GDT_Byte, None)
 
 
 if __name__ == '__main__':

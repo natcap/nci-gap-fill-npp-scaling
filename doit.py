@@ -374,8 +374,12 @@ def get_unique_raster_values(raster_path):
             LOGGER.debug(
                 f'unique raster values on block {index} there are '
                 f'{len(unique_vals)} unique vals so far')
+        if nodata is not None:
+            valid_mask = ~numpy.isclose(array, nodata)
+        else:
+            valid_mask = numpy.ones(array.shape, dtype=numpy.bool)
         unique_vals |= set(
-            numpy.unique(array[~numpy.isclose(array, nodata)]))
+            numpy.unique(array[valid_mask]))
     clean_unique_vals = [x for x in unique_vals if numpy.isfinite(x)]
     return clean_unique_vals
 

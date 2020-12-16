@@ -501,10 +501,10 @@ def mask_and_scale_value(
             if scale_raster_path is not None:
                 scale_array = scale_band.ReadAsArray(**offset_dict)
             for class_val in unique_class_vals:
-                if scale_count[class_val] == 0:
-                    continue
-                elif scale_raster_path is None:
+                if scale_raster_path is None:
                     npp_mean = 1.0
+                elif scale_count[class_val] == 0:
+                    continue
                 else:
                     npp_mean = (
                         scale_sum[class_val] / scale_count[class_val])

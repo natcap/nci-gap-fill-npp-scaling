@@ -279,6 +279,7 @@ def clip_fill_scale(
             # this can happen because biomass uses value as its class, skip it
             if raster_id == 'scale' and raster_path is None:
                 path_map['scale'] = None
+                continue
 
             if raster_id == 'class' and class_raster_path == value_raster_path:
                 path_map['class'] = path_map['value']

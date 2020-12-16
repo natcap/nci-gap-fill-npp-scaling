@@ -414,9 +414,6 @@ def mask_and_scale_value(
         None
     """
     try:
-        signal_catcher(
-            f"signal catcher in mask_and_scale_value: "
-            f"{target_scaled_value_raster_path}")
         unique_class_vals = get_unique_raster_values(class_raster_path)
         LOGGER.info(
             f'scaling {value_raster_path}\n'
@@ -506,10 +503,13 @@ def mask_and_scale_value(
             for class_val in unique_class_vals:
                 if scale_count[class_val] == 0:
                     continue
-                npp_mean = (
-                    scale_sum[class_val] / scale_count[class_val])
-                if numpy.isclose(npp_mean, 0.0):
+                elif scale_raster_path is None:
                     npp_mean = 1.0
+                else:
+                    npp_mean = (
+                        scale_sum[class_val] / scale_count[class_val])
+                    if numpy.isclose(npp_mean, 0.0):
+                        npp_mean = 1.0
                 valid_class_mask = numpy.isclose(class_array, class_val)
                 valid_mask = valid_class_mask & lulc_mask
                 if scale_raster_path is not None:
@@ -541,8 +541,6 @@ def mask_and_scale_value(
 def stitch_worker(work_queue, target_global_raster_path):
     """Stitch base, a smaller raster, into target, a global one."""
     try:
-        signal_catcher(
-            f'stitch signal {work_queue} {target_global_raster_path}')
         LOGGER.info(f'starting up stitching for {target_global_raster_path}')
         global_raster = gdal.OpenEx(
             target_global_raster_path, gdal.OF_RASTER | gdal.GA_Update)
@@ -623,7 +621,6 @@ def stitch_worker(work_queue, target_global_raster_path):
 def main():
     """Entry point."""
     try:
-        signal_catcher(f"signal catcher for MAIN")
         for dir_path in [WORKSPACE_DIR, DATA_DIR, COUNTRY_WORKSPACE_DIR]:
             try:
                 os.makedirs(dir_path)

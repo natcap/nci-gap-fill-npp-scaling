@@ -103,6 +103,13 @@ GRAZING_VALID_LULC_LIST = [
     202, 203]
 
 
+def _add_nodata_value(raster_path, nodata):
+    """Set the nodata value of the raster to `nodata`."""
+    raster = gdal.OpenEx(raster_path, gdal.OF_RASTER | gdal.GA_Update)
+    band = raster.GetRasterBand(1)
+    band.SetNoDataValue(nodata)
+
+
 def _fill_nodata_op(base, fill, nodata):
     result = numpy.copy(base)
     if nodata is not None:
@@ -636,6 +643,14 @@ def main():
             task_name=f'fetch {ECOSHARD_ROOT}')
         fetch_task.join()
 
+        nodata_value_task = task_graph.add_task(
+            func=_add_nodata_value,
+            args=(NPP_RASTER_PATH, 65536),
+            ignore_path_list=[NPP_RASTER_PATH],
+            dependent_task_list=[fetch_task],
+            task_name=f'add 65536 nodata value to NPP')
+        nodata_value_task.join()
+
         country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
         country_layer = country_vector.GetLayer()
 
@@ -658,18 +673,19 @@ def main():
                 ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
                  PLT_AN_BIO_PROJ_CLASS_RASTER_PATH,
                  NPP_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-                ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
-                 GRAZING_ZONE_RASTER_PATH, None,
-                 GRAZING_VALID_LULC_LIST,),
-                ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-                 GRAZING_ZONE_RASTER_PATH, None,
-                 GRAZING_VALID_LULC_LIST,),
-                ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
-                 GRAZING_ZONE_RASTER_PATH, None,
-                 GRAZING_VALID_LULC_LIST,),
-                ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
-                 GRAZING_ZONE_RASTER_PATH, None,
-                 GRAZING_VALID_LULC_LIST,),
+                # Becky told me not to do these that are commented out:
+                # ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
+                #  GRAZING_ZONE_RASTER_PATH, None,
+                #  GRAZING_VALID_LULC_LIST,),
+                # ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
+                #  GRAZING_ZONE_RASTER_PATH, None,
+                #  GRAZING_VALID_LULC_LIST,),
+                # ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
+                #  GRAZING_ZONE_RASTER_PATH, None,
+                #  GRAZING_VALID_LULC_LIST,),
+                # ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
+                #  GRAZING_ZONE_RASTER_PATH, None,
+                #  GRAZING_VALID_LULC_LIST,),
                 ]:
             global_stitch_raster_path = os.path.join(
                 WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')

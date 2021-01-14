@@ -645,7 +645,7 @@ def main():
 
         nodata_value_task = task_graph.add_task(
             func=_add_nodata_value,
-            args=(NPP_RASTER_PATH, 65536),
+            args=(NPP_RASTER_PATH, 65535),
             ignore_path_list=[NPP_RASTER_PATH],
             dependent_task_list=[fetch_task],
             task_name=f'add 65536 nodata value to NPP')

@@ -15,10 +15,8 @@ import multiprocessing
 import os
 import queue
 import signal
-import warnings
 import threading
 import time
-warnings.filterwarnings('error')
 
 from osgeo import gdal
 import ecoshard
@@ -68,8 +66,12 @@ WORKSPACE_DIR = 'workspace'
 DATA_DIR = os.path.join(WORKSPACE_DIR, 'data')
 COUNTRY_WORKSPACE_DIR = os.path.join(WORKSPACE_DIR, 'country_workspaces')
 
+COUNTRY_VECTOR_URL = (
+    'https://storage.googleapis.com/ecoshard-root/nci-gap-fill-npp-scaling/'
+    'gtm_regions_md5_56c7618d8ec458fc13cf2e9cd692c640.gpkg')
 COUNTRY_VECTOR_PATH = os.path.join(
-    DATA_DIR, 'Data', 'supportingLayers', 'countries_iso3_NCI_May.shp')
+    DATA_DIR, 'gtm_regions_md5_56c7618d8ec458fc13cf2e9cd692c640.gpkg')
+
 ESA_LULC_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'supportingLayers', 'lulc.tif')
 NPP_RASTER_PATH = os.path.join(
@@ -77,23 +79,18 @@ NPP_RASTER_PATH = os.path.join(
     'MOD17A3_Science_NPP_mean_00_15.tif')
 GRAZING_ZONE_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'supportingLayers', 'aez.tif')
+ANNUAL_BIOMASS_RASTER_URL = (
+    'https://storage.googleapis.com/ecoshard-root/nci-gap-fill-npp-scaling/'
+    'global_annual_biomass_per_ha_v2_md5_1b208bc7c7bbb8a6786ac5db8b81ec31.tif')
+
 ANNUAL_BIOMASS_RASTER_PATH = os.path.join(
-    DATA_DIR, 'Data', 'timberLayers', 'global_annual_biomass_per_ha.tif')
+    DATA_DIR, os.path.basename(ANNUAL_BIOMASS_RASTER_URL))
 PLT_AN_BIO_PROJ_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'timberLayers', 'plt_an_bio_proj.tif')
 
 PLT_AN_BIO_PROJ_CLASS_RASTER_PATH = os.path.join(
     WORKSPACE_DIR, 'derived_data', 'class_plt_an_bio_proj.tif')
 
-
-CURRENT_MEAT_PROD_RASTER_PATH = os.path.join(
-    DATA_DIR, 'Data', 'grazingLayers', 'current_grass_meat.tif')
-POTENTIAL_MEAT_PROD_RASTER_PATH = os.path.join(
-    DATA_DIR, 'Data', 'grazingLayers', 'potential_meat_gap_filled_cur.tif')
-CURRENT_METHANE_PROD_RASTER_PATH = os.path.join(
-    DATA_DIR, 'Data', 'grazingLayers', 'current_grass_methane.tif')
-POTENTIAL_METHANE_PROD_RASTER_PATH = os.path.join(
-    DATA_DIR, 'Data', 'grazingLayers', 'potential_methane_gap_filled_cur.tif')
 MAX_FILL_DIST_DEGREES = 0.5
 
 FORESTRY_VALID_LULC_LIST = [
@@ -641,13 +638,25 @@ def main():
             kwargs={'target_token_path': token_path},
             target_path_list=[token_path],
             task_name=f'fetch {ECOSHARD_ROOT}')
-        fetch_task.join()
+        download_task_list = [fetch_task]
+        for download_path, url in [
+                (COUNTRY_VECTOR_URL, COUNTRY_VECTOR_PATH),
+                (ANNUAL_BIOMASS_RASTER_URL, ANNUAL_BIOMASS_RASTER_PATH),
+                ]:
+            fetch_task = task_graph.add_task(
+                func=ecoshard.download_url,
+                args=(url, download_path),
+                target_path_list=[download_path],
+                task_name=f'fetch {url}')
+            download_task_list.append(fetch_task)
+
+        task_graph.join()
 
         nodata_value_task = task_graph.add_task(
             func=_add_nodata_value,
             args=(NPP_RASTER_PATH, 65535),
             ignore_path_list=[NPP_RASTER_PATH],
-            dependent_task_list=[fetch_task],
+            dependent_task_list=download_task_list,
             task_name=f'add 65536 nodata value to NPP')
         nodata_value_task.join()
 
@@ -673,19 +682,6 @@ def main():
                 ('plt_an_bio_proj', PLT_AN_BIO_PROJ_RASTER_PATH,
                  PLT_AN_BIO_PROJ_CLASS_RASTER_PATH,
                  NPP_RASTER_PATH, FORESTRY_VALID_LULC_LIST,),
-                # Becky told me not to do these that are commented out:
-                # ('current_meat_prod', CURRENT_MEAT_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, None,
-                #  GRAZING_VALID_LULC_LIST,),
-                # ('potential_meat_prod', POTENTIAL_MEAT_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, None,
-                #  GRAZING_VALID_LULC_LIST,),
-                # ('potential_methane_prod', POTENTIAL_METHANE_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, None,
-                #  GRAZING_VALID_LULC_LIST,),
-                # ('current_methane_prod', CURRENT_METHANE_PROD_RASTER_PATH,
-                #  GRAZING_ZONE_RASTER_PATH, None,
-                #  GRAZING_VALID_LULC_LIST,),
                 ]:
             global_stitch_raster_path = os.path.join(
                 WORKSPACE_DIR, f'global_{os.path.basename(value_raster_path)}')

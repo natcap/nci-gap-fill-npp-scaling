@@ -100,7 +100,7 @@ GRAZING_VALID_LULC_LIST = [
     202, 203]
 
 
-def _add_nodata_value(raster_path, nodata):
+def _set_nodata_value(raster_path, nodata):
     """Set the nodata value of the raster to `nodata`."""
     raster = gdal.OpenEx(raster_path, gdal.OF_RASTER | gdal.GA_Update)
     band = raster.GetRasterBand(1)
@@ -652,13 +652,21 @@ def main():
 
         task_graph.join()
 
-        nodata_value_task = task_graph.add_task(
-            func=_add_nodata_value,
+        nodata_npp_value_task = task_graph.add_task(
+            func=_set_nodata_value,
             args=(NPP_RASTER_PATH, 65535),
             ignore_path_list=[NPP_RASTER_PATH],
             dependent_task_list=download_task_list,
             task_name=f'add 65536 nodata value to NPP')
-        nodata_value_task.join()
+        nodata_npp_value_task.join()
+
+        nodata_biomass_value_task = task_graph.add_task(
+            func=_set_nodata_value,
+            args=(ANNUAL_BIOMASS_RASTER_PATH, 0),
+            ignore_path_list=[ANNUAL_BIOMASS_RASTER_PATH],
+            dependent_task_list=download_task_list,
+            task_name=f'set 0 nodata value on biomass')
+        nodata_biomass_value_task.join()
 
         country_vector = gdal.OpenEx(COUNTRY_VECTOR_PATH, gdal.OF_VECTOR)
         country_layer = country_vector.GetLayer()

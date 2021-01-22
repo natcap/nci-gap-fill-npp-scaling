@@ -639,7 +639,7 @@ def main():
             target_path_list=[token_path],
             task_name=f'fetch {ECOSHARD_ROOT}')
         download_task_list = [fetch_task]
-        for download_path, url in [
+        for url, download_path in [
                 (COUNTRY_VECTOR_URL, COUNTRY_VECTOR_PATH),
                 (ANNUAL_BIOMASS_RASTER_URL, ANNUAL_BIOMASS_RASTER_PATH),
                 ]:

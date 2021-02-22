@@ -81,7 +81,7 @@ GRAZING_ZONE_RASTER_PATH = os.path.join(
     DATA_DIR, 'Data', 'supportingLayers', 'aez.tif')
 ANNUAL_BIOMASS_RASTER_URL = (
     'https://storage.googleapis.com/ecoshard-root/nci-gap-fill-npp-scaling/'
-    'global_annual_biomass_per_ha_v2_md5_1b208bc7c7bbb8a6786ac5db8b81ec31.tif')
+    'global_annual_biomass_per_ha_v3_md5_8abced970e9faa1c79cc0a13cf36ea63.tif')
 
 ANNUAL_BIOMASS_RASTER_PATH = os.path.join(
     DATA_DIR, os.path.basename(ANNUAL_BIOMASS_RASTER_URL))

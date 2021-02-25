@@ -184,7 +184,7 @@ def fill_by_convolution(
                 compression_predictor=None)
             signal_raster_path = square_block_path
 
-        LOGGER.info(f'convolve 2d on {base_raster_path} {backfill_raster_path}')
+        LOGGER.info(f'convolve 2d on {signal_raster_path} {backfill_raster_path}')
         pygeoprocessing.convolve_2d(
             (signal_raster_path, 1), (kernel_raster_path, 1),
             backfill_raster_path, ignore_nodata_and_edges=True,
@@ -194,9 +194,9 @@ def fill_by_convolution(
             working_dir=target_dir)
 
         LOGGER.info(
-            f'fill nodata of {base_raster_path} to {backfill_raster_path}')
+            f'fill nodata of {signal_raster_path} to {backfill_raster_path}')
         pygeoprocessing.raster_calculator(
-            [(base_raster_path, 1), (backfill_raster_path, 1),
+            [(signal_raster_path, 1), (backfill_raster_path, 1),
              (base_nodata, 'raw')], _fill_nodata_op, target_filled_raster_path,
             base_raster_info['datatype'], base_nodata)
 

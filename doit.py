@@ -171,9 +171,22 @@ def fill_by_convolution(
             target_datatype = gdal.GDT_Float64
         else:
             target_datatype = base_raster_info['datatype']
+
+        non_square_block = False
+        signal_raster_path = base_raster_path
+        if base_raster_info['block_size'][0] != base_raster_info['block_size'][1]:
+            non_square_block = True
+            square_block_path = os.path.join(
+                target_dir, f'{base_raster_path}_square_block.tif')
+            ecoshard.compress_raster(
+                base_raster_path, square_block_path,
+                compression_algorithm='LZW',
+                compression_predictor=None)
+            signal_raster_path = square_block_path
+
         LOGGER.info(f'convolve 2d on {base_raster_path} {backfill_raster_path}')
         pygeoprocessing.convolve_2d(
-            (base_raster_path, 1), (kernel_raster_path, 1),
+            (signal_raster_path, 1), (kernel_raster_path, 1),
             backfill_raster_path, ignore_nodata_and_edges=True,
             mask_nodata=False, normalize_kernel=True,
             target_nodata=base_nodata,
@@ -189,6 +202,8 @@ def fill_by_convolution(
 
         os.remove(kernel_raster_path)
         os.remove(backfill_raster_path)
+        if non_square_block:
+            os.remove(square_block_path)
     except Exception:
         LOGGER.exception(
             f'error on fill by convolution {target_filled_raster_path}')

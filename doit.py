@@ -394,7 +394,7 @@ def get_unique_raster_values(raster_path):
         if nodata is not None:
             valid_mask = ~numpy.isclose(array, nodata)
         else:
-            valid_mask = numpy.ones(array.shape, dtype=numpy.bool)
+            valid_mask = slice(-1)
         unique_vals |= set(
             numpy.unique(array[valid_mask]))
     clean_unique_vals = [x for x in unique_vals if numpy.isfinite(x)]
